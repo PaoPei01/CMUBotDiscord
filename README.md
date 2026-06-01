@@ -94,24 +94,57 @@ packages/
   ai/
 ```
 
-These folders are planned but should be created only when the relevant implementation phase starts.
+The Phase 1 foundation has created this structure with placeholders only.
 
 ## Setup
 
-No application code has been implemented yet. These are the planned setup steps once implementation begins.
+Install dependencies:
 
-1. Install Node.js and pnpm.
-2. Create a Discord application in the Discord Developer Portal.
-3. Create a bot user and copy the bot token.
-4. Configure OAuth2 and invite the bot to the target server with slash command permissions.
-5. Create a Supabase project with PostgreSQL.
-6. Enable pgvector when the vector search phase begins.
-7. Copy `.env.example` to `.env`.
-8. Fill in required environment variables.
-9. Start the application using the documented command added during implementation.
-10. Register the `/ask` slash command.
-11. Load verified knowledge records.
-12. Test known, unknown, invalid, and ambiguous questions.
+```sh
+pnpm install
+```
+
+If `pnpm` is managed through Corepack, use:
+
+```sh
+corepack pnpm install
+```
+
+Copy environment placeholders:
+
+```sh
+cp .env.example .env
+```
+
+Do not commit `.env`.
+
+Future setup steps:
+
+1. Create a Discord application in the Discord Developer Portal.
+2. Create a bot user and copy the bot token.
+3. Configure OAuth2 and invite the bot to the target server with slash command permissions.
+4. Create a Supabase project with PostgreSQL.
+5. Enable pgvector when the vector search phase begins.
+6. Register Discord slash commands in the Discord Bot MVP phase.
+7. Load verified knowledge records after database schema exists.
+
+## Run
+
+Start the bot foundation health process:
+
+```sh
+pnpm dev:bot
+```
+
+Start the admin app:
+
+```sh
+pnpm dev:admin
+```
+
+The bot currently logs startup health only. It does not log in to Discord yet.
+
+The admin app currently renders the foundation homepage: `Campus Q&A Admin`.
 
 ## Environment Variables
 
@@ -155,6 +188,16 @@ pnpm build
 
 Fix all errors before finishing.
 
+## Phase 1 Dependency Notes
+
+- `typescript`, `@types/node`, and `tsx` support strict TypeScript builds and local bot development.
+- `eslint`, `@eslint/js`, and `typescript-eslint` provide linting for TypeScript source.
+- `prettier` provides shared formatting configuration.
+- `zod` powers shared environment validation.
+- `pino` provides structured logging.
+- `next`, `react`, and `react-dom` are required for the minimal admin app.
+- Supabase SDK is not installed yet; `packages/database` contains a placeholder client and types only until the database phase.
+
 ## Development Rules
 
 Read `AGENTS.md` before implementing code.
@@ -176,4 +219,3 @@ Key rules:
 ## Implementation Plan
 
 See `IMPLEMENTATION_PLAN.md` for phased delivery.
-

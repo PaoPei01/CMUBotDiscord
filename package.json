@@ -1,0 +1,23 @@
+{
+  "name": "campus-discord-qa-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "corepack pnpm -r build",
+    "dev:admin": "corepack pnpm --filter @campus-qa/admin dev",
+    "dev:bot": "corepack pnpm --filter @campus-qa/bot dev",
+    "lint": "eslint .",
+    "typecheck": "corepack pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.7",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  }
+}

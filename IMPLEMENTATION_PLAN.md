@@ -15,6 +15,7 @@ At the end of each phase:
 Before completing any implementation phase with code, run:
 
 ```sh
+pnpm install
 pnpm lint
 pnpm typecheck
 pnpm build
@@ -22,248 +23,169 @@ pnpm build
 
 Fix all errors before finishing.
 
-## Phase 0: Project Foundation
+## Phase 1: Foundation
 
 Status: complete.
 
-Goal: Define project scope, constraints, planned stack, and safe implementation path.
+Goal: Create the monorepo foundation.
 
-Deliverables:
+Completed scope:
 
-- Project rules in `AGENTS.md`
-- Implementation plan in `IMPLEMENTATION_PLAN.md`
-- Setup instructions in `README.md`
-- Secret placeholders in `.env.example`
-- Git ignore rules in `.gitignore`
+- pnpm workspace
+- TypeScript strict mode
+- ESLint
+- Prettier
+- Shared TypeScript config
+- Environment validation helper
+- Logging utility
+- Basic Node TypeScript bot startup with health log only
+- Basic Next.js admin app with homepage text `Campus Q&A Admin`
+- Package placeholders for shared, database, knowledge, and AI
 
-Success criteria:
+Not included:
 
-- Contributors understand this is a verified Q&A bot only.
-- Contributors know not to build general AI chat or Discord community features.
-- Required configuration is documented before code exists.
-- The long-term retrieval order is documented.
-- The no-answer Thai fallback text is documented.
+- No Discord login or commands
+- No database tables or migrations
+- No AI provider implementation
+- No unrelated features
 
-## Phase 1: Monorepo And Tooling Setup
+Validation results:
 
-Goal: Create the TypeScript/pnpm workspace without implementing bot behavior yet.
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
 
-Planned stack:
+Note: The local environment does not expose a direct `pnpm` shim, so validation used `corepack pnpm`, which runs the pinned pnpm version from `packageManager`.
 
-- TypeScript
-- Node.js
-- pnpm
-- Discord.js v14
-- Next.js
-- Supabase
-- PostgreSQL
-- pgvector
+## Phase 2: Database
 
-Planned repository structure:
+Goal: Create verified FAQ database schema.
 
-```text
-apps/
-  bot/
-  admin/
+Tables:
 
-packages/
-  database/
-  shared/
-  knowledge/
-  ai/
-```
+- `faqs`
+- `faq_aliases`
+- `faq_keywords`
+- `sources`
+- `question_logs`
+- `feedback`
 
-Deliverables:
+Done when:
 
-- `pnpm-workspace.yaml`
-- Root package scripts for `lint`, `typecheck`, and `build`
-- Shared TypeScript configuration
-- Minimal package/app placeholders only where needed
-- Dependency notes explaining every added package
+- Supabase migration exists.
+- TypeScript database types exist.
+- Seed data can be inserted.
+- Basic queries work.
 
-Success criteria:
+## Phase 3: Discord Bot MVP
 
-- `pnpm lint`, `pnpm typecheck`, and `pnpm build` exist.
-- Workspace structure matches the documented architecture.
-- No Discord features are implemented yet.
-- No unrelated packages are added.
+Goal: Build basic Discord Q&A bot.
 
-## Phase 2: Minimal Discord `/ask` Command
+Commands:
 
-Goal: Create the smallest working `/ask` flow without AI and without production knowledge lookup.
+- `/ping`
+- `/ask`
 
-Deliverables:
+Scope:
 
-- Discord bot app in `apps/bot`
 - Discord.js v14 setup
-- Slash command registration for `/ask`
-- Input validation for the `question` option
-- Startup environment validation
-- Safe error logging
+- Slash command registration
+- Command handler
+- Exact FAQ search
+- Answer with source
+- Unanswered question logging
 
-Success criteria:
+Done when:
 
-- A student can submit `/ask question:...`.
-- Invalid or empty questions are rejected clearly.
-- The command does not answer from AI or hardcoded guesses.
-- Missing environment variables fail fast.
-- Validation commands pass.
+- `/ping` works.
+- `/ask` works.
+- FAQ answer is returned.
+- Source citation is shown.
+- Unknown question is logged.
 
-## Phase 3: Database Schema
+## Phase 4: Admin Minimal
 
-Goal: Define verified knowledge and question logging storage.
+Goal: Create basic admin interface for FAQ management.
 
-Deliverables:
+Pages:
 
-- Supabase/PostgreSQL schema for verified knowledge entries
-- Source citation fields
-- Alias fields for alias match
-- Verification status field
-- Last reviewed date field
-- Question log table
-- Feedback event table
-- Server-side-only handling plan for service role keys
+- FAQ list
+- Create FAQ
+- Edit FAQ
+- Source list
 
-Success criteria:
+Done when:
 
-- Only verified records can be selected for production answers.
-- Every answerable record has citation metadata.
-- Logs avoid unnecessary personal data.
-- Bad or incomplete records fail validation.
+- Admin can add FAQ.
+- Admin can edit FAQ.
+- Bot can answer newly added FAQ.
 
-## Phase 4: Exact FAQ Match
+## Phase 5: Better Search
 
-Goal: Answer only exact verified FAQ matches.
+Goal: Improve retrieval without AI.
 
-Deliverables:
+Search layers:
 
-- Exact match lookup in `packages/knowledge`
-- Answer formatter with source citation
-- Thai no-answer fallback:
-
-```text
-ยังไม่พบข้อมูลที่ยืนยันได้จากฐานข้อมูลของระบบ
-```
-
-- Question logging for answered and unanswered questions
-- Feedback buttons on responses
-
-Success criteria:
-
-- Exact known questions return correct cited answers.
-- Unknown questions return the exact fallback text.
-- All questions are logged.
-- All responses include feedback buttons.
-- No response is sent without required source handling.
-
-## Phase 5: Alias And Keyword Match
-
-Goal: Improve deterministic lookup without AI.
-
-Deliverables:
-
+- Exact match
 - Alias match
 - Keyword match
-- Confidence thresholds
-- Ambiguous result handling
-- Tests or validation for irrelevant and ambiguous matches
+- Full-text search
+- Fuzzy search
 
-Success criteria:
+Done when:
 
-- Alias and keyword matches use only verified records.
-- Low-confidence results fall back safely.
-- Ambiguous results do not produce guessed answers.
-- Citations remain required.
+- Misspelled or varied questions still find the right verified FAQ.
 
-## Phase 6: Full-Text Search
+## Phase 6: Vector Search
 
-Goal: Add PostgreSQL full-text search over verified knowledge.
+Goal: Add semantic search.
 
-Deliverables:
+Scope:
 
-- Full-text search query or index
-- Ranking rules
-- Confidence thresholds
-- Citation-preserving result format
+- pgvector
+- Embeddings table or embedding column
+- Embedding provider abstraction
+- Vector similarity search
 
-Success criteria:
+Done when:
 
-- Search improves recall without allowing uncited answers.
-- Search uses only verified records.
-- Low-confidence results return the fallback text.
+- Semantically similar questions match the correct verified FAQ.
 
-## Phase 7: Vector Search With pgvector
+## Phase 7: AI Answer Composer
 
-Goal: Add semantic retrieval while preserving correctness.
+Goal: Use AI only to rewrite answers from verified context.
 
-Deliverables:
+Rules:
 
-- pgvector extension usage
-- Embedding storage for verified records
-- Vector search thresholding
-- Retrieval logging for analysis
+- AI cannot answer without retrieved context.
+- AI cannot invent facts.
+- AI must cite sources.
 
-Success criteria:
+Done when:
 
-- Vector search cannot return unverified records.
-- Retrieved context always includes source metadata.
-- Insufficient context returns the fallback text.
+- AI creates natural answers from existing FAQ/context.
+- No-context questions return the not-found response.
 
-## Phase 8: AI Answer Composer
+## Phase 8: Knowledge Import Drafts
 
-Goal: Optionally use AI to compose answers from retrieved verified context.
+Goal: Generate draft FAQs from documents.
 
-Deliverables:
+Supported:
 
-- Retrieval-before-generation pipeline
-- Prompt that restricts answers to verified context
-- Citation preservation
-- Refusal behavior when context is insufficient
-- Cost controls and rate limits
-- Regression tests for unsupported questions
+- PDF
+- DOCX
+- TXT
+- URL
 
-Success criteria:
+Rules:
 
-- AI never answers without retrieved verified context.
-- AI responses include citations.
-- Unsupported questions are refused safely.
-- The system remains useful if AI is disabled.
+- AI-generated FAQ goes to draft only.
+- Admin must approve before production.
 
-## Phase 9: Admin Review App
+Done when:
 
-Goal: Help maintainers review unanswered questions and manage verified knowledge.
-
-Deliverables:
-
-- Next.js admin app in `apps/admin`
-- Supabase authentication plan
-- Review workflow for unanswered questions
-- Knowledge entry create/edit flow with validation
-- No automatic production import from AI
-
-Success criteria:
-
-- Maintainers can review common unanswered questions.
-- New production knowledge requires verification.
-- Service role keys are server-side only.
-- Admin actions are logged safely.
-
-## Phase 10: Operations And Quality
-
-Goal: Make the bot reliable for campus use.
-
-Deliverables:
-
-- Deployment instructions
-- Runtime health checks
-- Error logging
-- Backup and restore notes for FAQ data
-- Test coverage for core Q&A behavior
-
-Success criteria:
-
-- The bot can be deployed repeatably.
-- Failures are visible to maintainers.
-- Knowledge data can be protected and restored.
-- Core Q&A behavior is covered by tests.
+- Document creates draft FAQs.
+- Admin can approve or reject.
+- Approved draft becomes production FAQ.
 

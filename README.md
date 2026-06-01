@@ -142,7 +142,15 @@ Start the admin app:
 pnpm dev:admin
 ```
 
-The bot currently logs startup health only. It does not log in to Discord yet.
+Register guild slash commands:
+
+```sh
+pnpm deploy:commands
+```
+
+The command registration script deploys to the single guild configured by `DISCORD_GUILD_ID`. It does not deploy global commands.
+
+The bot logs in to Discord and listens only for interactions. It does not read normal chat messages.
 
 The admin app currently renders the foundation homepage: `Campus Q&A Admin`.
 
@@ -196,7 +204,8 @@ Fix all errors before finishing.
 - `zod` powers shared environment validation.
 - `pino` provides structured logging.
 - `next`, `react`, and `react-dom` are required for the minimal admin app.
-- Supabase SDK is not installed yet; `packages/database` contains a placeholder client and types only until the database phase.
+- `discord.js` is required for the Phase 3 slash command bot.
+- `@supabase/supabase-js` is required for Phase 3 database reads/writes from the server-side bot process.
 
 ## Development Rules
 

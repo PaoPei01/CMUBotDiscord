@@ -6,6 +6,7 @@
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "build": "corepack pnpm -r build",
+    "deploy:commands": "corepack pnpm --filter @campus-qa/bot deploy:commands",
     "dev:admin": "corepack pnpm --filter @campus-qa/admin dev",
     "dev:bot": "corepack pnpm --filter @campus-qa/bot dev",
     "lint": "eslint .",

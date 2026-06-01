@@ -5,6 +5,7 @@ export {
   logQuestion,
   saveFeedback
 } from "./services.js";
+export { createSupabaseDatabaseService } from "./supabase.js";
 export type { SupabaseClientPlaceholder } from "./client.js";
 export type { DatabaseError, DatabaseResult, DatabaseServiceClient } from "./services.js";
 export type {

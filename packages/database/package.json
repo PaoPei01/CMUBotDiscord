@@ -15,7 +15,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@supabase/supabase-js": "^2.48.1"
+  },
   "devDependencies": {
     "typescript": "^5.7.3"
   }

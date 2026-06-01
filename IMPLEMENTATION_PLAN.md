@@ -100,6 +100,8 @@ Validation results:
 
 ## Phase 3: Discord Bot MVP
 
+Status: complete.
+
 Goal: Build basic Discord Q&A bot.
 
 Commands:
@@ -107,22 +109,32 @@ Commands:
 - `/ping`
 - `/ask`
 
-Scope:
+Completed scope:
 
 - Discord.js v14 setup
-- Slash command registration
-- Command handler
-- Exact FAQ search
-- Answer with source
-- Unanswered question logging
+- Guild slash command registration script
+- Command handler for `/ping` and `/ask`
+- Exact FAQ search through the database service
+- Discord embed answer formatting with category, source, verification/update date, and confidence label
+- Question logging for answered and unanswered questions
+- Feedback buttons with vote save handler
+- Safe user-facing error messages
+- Startup, command execution, search method, feedback, and error logging
 
-Done when:
+Not included:
 
-- `/ping` works.
-- `/ask` works.
-- FAQ answer is returned.
-- Source citation is shown.
-- Unknown question is logged.
+- No AI implementation.
+- No fuzzy search.
+- No vector search.
+- No unrelated Discord features.
+- No normal chat message reading.
+
+Validation results:
+
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
 
 ## Phase 4: Admin Minimal
 

@@ -11,15 +11,7 @@ export function createSupabaseClientPlaceholder(
   supabaseAnonKey: string
 ): SupabaseClientPlaceholder {
   return {
-    database: {
-      public: {
-        CompositeTypes: {},
-        Enums: {},
-        Functions: {},
-        Tables: {},
-        Views: {}
-      }
-    },
+    database: {} as Database,
     supabaseAnonKey,
     supabaseUrl
   };

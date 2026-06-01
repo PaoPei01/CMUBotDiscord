@@ -60,6 +60,8 @@ Note: The local environment does not expose a direct `pnpm` shim, so validation 
 
 ## Phase 2: Database
 
+Status: complete.
+
 Goal: Create verified FAQ database schema.
 
 Tables:
@@ -71,12 +73,30 @@ Tables:
 - `question_logs`
 - `feedback`
 
-Done when:
+Completed scope:
 
-- Supabase migration exists.
-- TypeScript database types exist.
-- Seed data can be inserted.
-- Basic queries work.
+- Supabase migration for verified FAQ schema.
+- Seed SQL with 5 sample FAQs.
+- TypeScript database/domain types for `FAQ`, `Source`, `SearchResult`, `QuestionLog`, and `Feedback`.
+- TypeScript row coverage for `faq_aliases` and `faq_keywords`.
+- Server-side database service functions:
+  - `getActiveFaqs()`
+  - `findFaqByExactQuestion(question)`
+  - `logQuestion()`
+  - `saveFeedback()`
+
+Not included:
+
+- No Discord bot command logic.
+- No AI implementation.
+- No vector search.
+- No database migration execution against a remote Supabase project.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
 
 ## Phase 3: Discord Bot MVP
 
@@ -188,4 +208,3 @@ Done when:
 - Document creates draft FAQs.
 - Admin can approve or reject.
 - Approved draft becomes production FAQ.
-

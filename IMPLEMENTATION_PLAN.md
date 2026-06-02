@@ -573,3 +573,37 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
+
+## Worker AI Composer Reconnection
+
+Status: complete.
+
+Goal: Connect the Cloudflare Worker `/ask` flow to the AI answer composer while keeping verified Supabase FAQ data as the source of truth.
+
+Completed scope:
+
+- Reconnected Worker `/ask` to `AIProviderFactory`.
+- Worker now reads AI provider configuration from Worker env:
+  - `AI_PROVIDER`
+  - `GEMINI_API_KEY`
+  - `GEMINI_MODEL`
+- Preserved safe AI policy in the Worker answer composer:
+  - confidence `>= 90`: direct FAQ answer, no AI call
+  - confidence `< 70`: no AI call, not-found response
+  - confidence `70-89`: AI call only when verified context exists and provider is configured
+- Final Discord response uses the composed answer when AI is allowed.
+- AI failures fall back to the direct verified FAQ answer.
+- Logs include AI usage, provider, model, confidence, method, failure reason, and response time without logging secrets.
+
+Not included:
+
+- No embeddings.
+- No document import changes.
+- No unrelated Discord features.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.

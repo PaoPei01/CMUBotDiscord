@@ -1,4 +1,6 @@
+import { AIProviderFactory } from "@campus-qa/ai";
 import { AI_NOT_FOUND_MESSAGE } from "@campus-qa/ai";
+import type { AIProvider } from "@campus-qa/ai";
 
 import type { WorkerEnv } from "../env.js";
 import { editOriginalInteractionResponse } from "../discord/respond.js";
@@ -15,6 +17,18 @@ function optionValue(interaction: DiscordInteraction, name: string): string | nu
 
 function safeLog(payload: Record<string, unknown>): void {
   console.log(JSON.stringify(payload));
+}
+
+function createAIProvider(env: WorkerEnv): AIProvider | null {
+  try {
+    return AIProviderFactory.fromEnv({
+      AI_PROVIDER: env.AI_PROVIDER,
+      GEMINI_API_KEY: env.GEMINI_API_KEY,
+      GEMINI_MODEL: env.GEMINI_MODEL
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function handleAskInteraction(
@@ -37,7 +51,7 @@ export async function handleAskInteraction(
   try {
     const result = await searchKnowledge(supabase, question);
     const composition = await composeWorkerAnswer({
-      aiProvider: null,
+      aiProvider: createAIProvider(env),
       question,
       result
     });
@@ -77,7 +91,7 @@ export async function handleAskInteraction(
       payload: {
         embeds: [
           formatAnswerEmbed({
-            answer: result.answerShort ?? composition.answer,
+            answer: composition.answer,
             question,
             result,
             sourceNames: composition.sources.map((source) => source.name)

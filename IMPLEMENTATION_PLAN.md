@@ -531,3 +531,45 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
+
+## Admin CSV FAQ Import
+
+Status: complete.
+
+Goal: Allow admins to upload prepared FAQ CSV files from the Vercel admin dashboard and import them into Supabase.
+
+Completed scope:
+
+- Added reusable CSV FAQ import logic in `packages/database`:
+  - exact header validation
+  - whitespace normalization
+  - citation marker removal
+  - comma splitting for aliases, keywords, and related FAQ IDs
+  - required field validation
+  - status, priority, date, URL, and duplicate FAQ ID validation
+  - dry-run summary
+  - commit import into Supabase using service role credentials server-side only
+- Updated `/import` admin page for FAQ CSV upload.
+- Added required header display.
+- Added dry-run preview with created/updated/skipped counts.
+- Added row-level validation error table.
+- Added explicit confirmation checkbox before real import.
+- Added API routes:
+  - `POST /api/import/faqs/dry-run`
+  - `POST /api/import/faqs/commit`
+- Added configurable CSV file size limit with `FAQ_CSV_IMPORT_MAX_BYTES`.
+- CSV upload is admin-only, server-side, and accepts CSV files only.
+
+Not included:
+
+- No document/PDF import changes.
+- No AI-generated FAQ drafts.
+- No embeddings.
+- No unrelated admin pages.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.

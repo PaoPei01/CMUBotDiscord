@@ -11,6 +11,10 @@ export {
 } from "./services.js";
 export { createSupabaseAdminDatabase } from "./admin.js";
 export { createSupabaseDatabaseService } from "./supabase.js";
+export { parseFaqCsv } from "./import/parseFaqCsv.js";
+export { importFaqs } from "./import/importFaqs.js";
+export { validateFaqImportRow } from "./import/validateFaqImportRow.js";
+export { faqCsvHeaders } from "./import/types.js";
 export type {
   AdminDatabase,
   AdminDraftFAQ,
@@ -51,3 +55,9 @@ export type {
   SearchResult,
   Source
 } from "./types.js";
+export type {
+  FaqImportInput,
+  ParsedFaqCsv,
+  RawFaqCsvRow,
+  ValidatedFaqImportRow
+} from "./import/types.js";

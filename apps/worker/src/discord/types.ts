@@ -36,6 +36,7 @@ export type DiscordEmbedField = {
 export type DiscordEmbed = {
   title: string;
   color?: number;
+  description?: string;
   fields: DiscordEmbedField[];
 };
 

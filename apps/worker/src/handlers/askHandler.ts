@@ -105,7 +105,6 @@ export async function handleAskInteraction(
         embeds: [
           formatAnswerEmbed({
             answer: composition.answer,
-            question,
             result,
             sourceNames: composition.sources.map((source) => source.name)
           })

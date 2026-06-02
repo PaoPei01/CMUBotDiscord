@@ -642,6 +642,31 @@ Validation results:
 - `corepack pnpm test` passed.
 - `corepack pnpm build` passed.
 
+## Worker Answer Tone And Feedback Diagnostics
+
+Status: complete.
+
+Goal: Make Worker `/ask` answers feel more natural in Discord while keeping
+verified sources visible, and make feedback failures diagnosable without
+leaking secrets.
+
+Completed scope:
+
+- Simplified Worker answer embeds from database-style metadata blocks into a
+  concise Thai answer with a short feedback note.
+- Kept verified source citation and last-verified date visible.
+- Hid internal confidence/status/priority metadata from normal Discord users.
+- Added safe feedback failure logging for `wrangler tail`.
+- Added an idempotent Supabase migration to ensure the `feedback` table and
+  feedback indexes exist in environments that missed the original schema step.
+- Added Worker embed formatting tests.
+
+Not included:
+
+- No Discord Gateway bot changes.
+- No AI source-of-truth rule changes.
+- No unrelated Discord features.
+
 ## Worker Feedback Buttons
 
 Status: complete.

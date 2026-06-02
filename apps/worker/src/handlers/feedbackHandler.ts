@@ -9,6 +9,10 @@ function discordUserId(interaction: DiscordInteraction): string | null {
   return interaction.member?.user?.id ?? interaction.user?.id ?? null;
 }
 
+function safeLog(payload: Record<string, unknown>): void {
+  console.log(JSON.stringify(payload));
+}
+
 export async function handleFeedbackInteraction(
   interaction: DiscordInteraction,
   env: WorkerEnv
@@ -27,7 +31,11 @@ export async function handleFeedbackInteraction(
     });
 
     return ephemeralDiscordResponse("บันทึก feedback แล้ว");
-  } catch {
+  } catch (error) {
+    safeLog({
+      failure_reason: "feedback_save_failed",
+      message: error instanceof Error ? error.message : "unknown_error"
+    });
     return ephemeralDiscordResponse("ไม่สามารถบันทึก feedback ได้");
   }
 }

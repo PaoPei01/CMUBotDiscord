@@ -1,15 +1,11 @@
 import type { KnowledgeSearchResult } from "../services/knowledgeSearch.js";
-import type { DiscordEmbed } from "./types.js";
+import type { DiscordEmbed, DiscordEmbedField } from "./types.js";
 
 const EXPIRED_WARNING =
   "ข้อมูลนี้อาจพ้นช่วงเวลาที่กำหนดแล้ว กรุณาตรวจสอบประกาศล่าสุดจากแหล่งข้อมูลโดยตรง";
 
 function truncate(value: string, maxLength = 1024): string {
   return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
-}
-
-function valueOrDash(value: string | null | undefined): string {
-  return value?.trim() ? value : "-";
 }
 
 function formatDate(value: string | null | undefined): string {
@@ -34,27 +30,26 @@ function isExpired(validUntil: string | null): boolean {
   return validUntil ? new Date(validUntil).getTime() < Date.now() : false;
 }
 
-function statusValue(result: KnowledgeSearchResult): string {
-  const validity = [
-    result.validFrom ? `เริ่มใช้: ${formatDate(result.validFrom)}` : null,
-    result.validUntil ? `ใช้ถึง: ${formatDate(result.validUntil)}` : null
-  ].filter(Boolean);
-  return [
-    "สถานะ: active",
-    `ความสำคัญ: ${valueOrDash(result.priority)}`,
-    validity.length > 0 ? validity.join("\n") : "ช่วงเวลา: -",
-    `ความมั่นใจ: ${result.confidence}`
-  ].join("\n");
+function formatAnswerText(answer: string): string {
+  const trimmedAnswer = answer.trim();
+
+  if (!trimmedAnswer) {
+    return "";
+  }
+
+  const politeAnswer = /(?:ครับ|ค่ะ|คะ|นะครับ|นะคะ)$/u.test(trimmedAnswer)
+    ? trimmedAnswer
+    : `${trimmedAnswer} ครับ`;
+
+  return `${politeAnswer}\n\nหากข้อมูลนี้ไม่ตรงกับประกาศล่าสุด สามารถกดปุ่ม feedback ด้านล่างเพื่อให้ทีมตรวจสอบต่อได้ครับ`;
 }
 
 export function formatAnswerEmbed({
   answer,
-  question,
   result,
   sourceNames
 }: {
   answer: string;
-  question: string;
   result: KnowledgeSearchResult;
   sourceNames?: string[];
 }): DiscordEmbed {
@@ -62,29 +57,18 @@ export function formatAnswerEmbed({
   const sourceValue = result.sourceUrl
     ? `[${sourceName}](${result.sourceUrl})`
     : sourceName;
-  const fields = [
-    {
-      name: "คำถาม",
-      value: truncate(question)
-    },
-    {
-      name: "คำตอบ",
-      value: truncate(answer)
-    },
-    {
-      name: "หมวดหมู่",
-      value: valueOrDash(result.category)
-    },
-    {
-      name: "สำหรับ",
-      value: valueOrDash(result.audience)
-    }
-  ];
+  const fields: DiscordEmbedField[] = [];
 
-  if (result.facultyGroup) {
+  if (result.category || result.audience || result.facultyGroup) {
+    const scope = [
+      result.category ? `หมวดหมู่: ${result.category}` : null,
+      result.audience ? `สำหรับ: ${result.audience}` : null,
+      result.facultyGroup ? `คณะ/กลุ่ม: ${result.facultyGroup}` : null
+    ].filter(Boolean);
+
     fields.push({
-      name: "คณะ/กลุ่ม",
-      value: result.facultyGroup
+      name: "ข้อมูลที่เกี่ยวข้อง",
+      value: truncate(scope.join("\n"))
     });
   }
 
@@ -106,10 +90,6 @@ export function formatAnswerEmbed({
     {
       name: "ตรวจสอบล่าสุด",
       value: formatDate(result.lastVerifiedAt)
-    },
-    {
-      name: "สถานะข้อมูล",
-      value: truncate(statusValue(result))
     }
   );
 
@@ -122,7 +102,8 @@ export function formatAnswerEmbed({
 
   return {
     color: 0x1f8b4c,
+    description: truncate(formatAnswerText(answer), 4096),
     fields,
-    title: "คำตอบจากฐานข้อมูล"
+    title: "คำตอบ"
   };
 }

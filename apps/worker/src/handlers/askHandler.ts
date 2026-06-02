@@ -99,10 +99,10 @@ export async function handleAskInteraction(
       },
       token: interaction.token
     });
-  } catch (error) {
+  } catch {
     safeLog({
       ai_used: false,
-      failure_reason: error instanceof Error ? error.message : "worker_ask_failed",
+      failure_reason: "worker_ask_failed",
       provider: null
     });
 

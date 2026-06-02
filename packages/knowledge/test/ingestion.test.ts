@@ -4,6 +4,7 @@ import {
   approveDraftForProduction,
   chunkText,
   createDraftCandidates,
+  FAQ_EXTRACTION_PROMPT,
   GeminiFAQExtractionProvider,
   generateDraftFAQsFromParsedInput,
   GroqFAQExtractionProvider,
@@ -69,6 +70,12 @@ describe("knowledge chunking", () => {
 });
 
 describe("draft creation", () => {
+  it("instructs extraction providers to return JSON only", () => {
+    expect(FAQ_EXTRACTION_PROMPT).toContain("Return JSON only");
+    expect(FAQ_EXTRACTION_PROMPT).toContain('{"faqs":[]}');
+    expect(FAQ_EXTRACTION_PROMPT).toContain("Never answer with natural language");
+  });
+
   it("creates draft candidates from extracted explicit FAQs", async () => {
     const provider: FAQExtractionProvider = {
       extractFAQs() {
@@ -209,9 +216,12 @@ describe("draft creation", () => {
 
     const firstBody = requestBodyAt(fetchMock, 0);
     const secondBody = requestBodyAt(fetchMock, 1);
+    const secondMessages = secondBody.messages as Array<{ content: string; role: string }>;
 
     expect(firstBody.response_format).toEqual({ type: "json_object" });
     expect(secondBody.response_format).toBeUndefined();
+    expect(secondMessages[0]?.role).toBe("system");
+    expect(secondMessages[0]?.content).toContain("Return only valid JSON");
   });
 });
 

@@ -9,6 +9,10 @@ export const FAQ_EXTRACTION_PROMPT = [
   "",
   "Generate possible FAQ entries only from explicit information in the text.",
   "",
+  "Return JSON only. Do not include explanations, markdown, comments, or prose.",
+  "If there are no explicit FAQ entries, return exactly:",
+  '{"faqs":[]}',
+  "",
   "Output only valid JSON. Prefer this object shape:",
   "",
   "{",
@@ -37,7 +41,8 @@ export const FAQ_EXTRACTION_PROMPT = [
   "",
   "Do not invent facts.",
   "Do not infer missing details.",
-  "Do not generate FAQ if information is unclear."
+  "Do not generate FAQ if information is unclear.",
+  "Never answer with natural language outside the JSON object."
 ].join("\n");
 
 type ProviderOptions = {
@@ -242,9 +247,21 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
   }
 
   private async requestExtraction(chunk: string, useJsonMode: boolean): Promise<GroqResponse> {
+    const messages = [
+      ...(useJsonMode
+        ? []
+        : [
+            {
+              content:
+                'Return only valid JSON in this exact shape: {"faqs":[{"question":"","answer":"","keywords":[],"category":"","confidence":0}]}. If no entries exist, return {"faqs":[]}.',
+              role: "system"
+            }
+          ]),
+      { content: buildPrompt(chunk), role: "user" }
+    ];
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       body: JSON.stringify({
-        messages: [{ content: buildPrompt(chunk), role: "user" }],
+        messages,
         model: this.modelName,
         ...(useJsonMode ? { response_format: { type: "json_object" } } : {}),
         temperature: 0.1

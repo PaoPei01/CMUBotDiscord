@@ -14,6 +14,10 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "../lib/auth";
 import { getAdminDatabase } from "../lib/database";
 
+export type ImportKnowledgeActionState = {
+  error: string | null;
+};
+
 function maxImportBytes(): number {
   const configured = Number(process.env.KNOWLEDGE_IMPORT_MAX_BYTES);
   return Number.isFinite(configured) && configured > 0 ? configured : 10 * 1024 * 1024;
@@ -39,7 +43,15 @@ function isParsedFileInput(
   );
 }
 
-export async function importKnowledgeAction(formData: FormData): Promise<void> {
+function userFacingImportError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Import failed";
+  }
+
+  return error.message;
+}
+
+async function createKnowledgeDrafts(formData: FormData): Promise<number> {
   requireAdmin();
 
   const database = getAdminDatabase();
@@ -125,5 +137,27 @@ export async function importKnowledgeAction(formData: FormData): Promise<void> {
 
   revalidatePath("/drafts");
   revalidatePath("/reviews");
-  redirect(`/drafts?success=imported&count=${generated.drafts.length}`);
+  return generated.drafts.length;
+}
+
+export async function importKnowledgeAction(formData: FormData): Promise<void> {
+  const draftCount = await createKnowledgeDrafts(formData);
+  redirect(`/drafts?success=imported&count=${draftCount}`);
+}
+
+export async function submitKnowledgeImportAction(
+  _state: ImportKnowledgeActionState,
+  formData: FormData
+): Promise<ImportKnowledgeActionState> {
+  let draftCount = 0;
+
+  try {
+    draftCount = await createKnowledgeDrafts(formData);
+  } catch (error) {
+    return {
+      error: userFacingImportError(error)
+    };
+  }
+
+  redirect(`/drafts?success=imported&count=${draftCount}`);
 }

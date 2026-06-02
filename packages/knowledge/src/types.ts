@@ -1,8 +1,34 @@
-import type { Citation } from "@campus-qa/shared";
+import type { Source } from "@campus-qa/database";
 
-export type KnowledgeSearchResult = {
-  faqId: string;
-  answer: string;
-  citations: Citation[];
-  score: number;
+export type SearchMethod =
+  | "exact"
+  | "alias"
+  | "keyword"
+  | "full_text"
+  | "fuzzy"
+  | "none";
+
+export type SearchResult = {
+  answer: string | null;
+  confidence: number;
+  faqId: string | null;
+  method: SearchMethod;
+  source: Source | null;
 };
+
+export type KnowledgeEntry = {
+  aliases: string[];
+  answer: string;
+  category: string;
+  faqId: string;
+  keywords: string[];
+  question: string;
+  source: Source | null;
+  updatedAt: string;
+};
+
+export type KnowledgeRepository = {
+  getKnowledgeEntries(): Promise<KnowledgeEntry[]>;
+};
+
+export type KnowledgeSearchResult = SearchResult;

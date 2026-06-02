@@ -13,12 +13,16 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@campus-qa/shared": "workspace:*"
+    "@campus-qa/database": "workspace:*",
+    "@campus-qa/shared": "workspace:*",
+    "fuse.js": "^7.1.0"
   },
   "devDependencies": {
+    "vitest": "^2.1.8",
     "typescript": "^5.7.3"
   }
 }

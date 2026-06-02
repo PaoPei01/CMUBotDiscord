@@ -1,4 +1,5 @@
 import type { DatabaseServiceClient } from "@campus-qa/database";
+import type { KnowledgeEngine } from "@campus-qa/knowledge";
 import type { ChatInputCommandInteraction } from "discord.js";
 
 import { askCommand } from "../commands/ask.js";
@@ -12,6 +13,7 @@ export type BotLogger = {
 
 export type BotContext = {
   database: DatabaseServiceClient;
+  knowledge: KnowledgeEngine;
   logger: BotLogger;
 };
 

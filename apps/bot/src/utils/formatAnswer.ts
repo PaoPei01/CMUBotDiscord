@@ -1,4 +1,4 @@
-import type { SearchResult } from "@campus-qa/database";
+import type { SearchResult } from "@campus-qa/knowledge";
 import {
   ActionRowBuilder,
   ButtonBuilder,
@@ -8,6 +8,8 @@ import {
 
 export const NOT_FOUND_MESSAGE =
   "ยังไม่พบข้อมูลที่ยืนยันได้จากฐานข้อมูลของระบบ";
+export const LOW_CONFIDENCE_MESSAGE =
+  "พบข้อมูลที่ใกล้เคียงที่สุด อาจต้องตรวจสอบเพิ่มเติม";
 
 type ButtonRow = ActionRowBuilder<ButtonBuilder>;
 
@@ -34,6 +36,18 @@ function createFeedbackComponents(questionLogId: string): ButtonRow[] {
   ];
 }
 
+function confidenceLabel(confidence: number): string {
+  if (confidence >= 75) {
+    return "สูง";
+  }
+
+  if (confidence >= 60) {
+    return "ใกล้เคียง";
+  }
+
+  return "ต่ำ";
+}
+
 export function createAnswerComponents(questionLogId: string): ButtonRow[] {
   return createFeedbackComponents(questionLogId);
 }
@@ -51,38 +65,44 @@ export function createAnswerEmbed({
 }): EmbedBuilder {
   const sourceName = result.source?.name ?? "ไม่ระบุแหล่งที่มา";
   const sourceUrl = result.source?.url;
-  const verifiedAt = result.source?.lastVerifiedAt ?? result.faq.updatedAt;
+  const verifiedAt = result.source?.lastVerifiedAt ?? "ไม่ระบุ";
   const sourceValue = sourceUrl ? `[${sourceName}](${sourceUrl})` : sourceName;
+  const fields = [];
+
+  if (result.confidence >= 60 && result.confidence < 75) {
+    fields.push({
+      name: "หมายเหตุ",
+      value: LOW_CONFIDENCE_MESSAGE
+    });
+  }
+
+  fields.push(
+    {
+      name: "คำถาม",
+      value: truncate(question)
+    },
+    {
+      name: "คำตอบ",
+      value: truncate(result.answer ?? NOT_FOUND_MESSAGE)
+    },
+    {
+      name: "แหล่งที่มา",
+      value: truncate(sourceValue)
+    },
+    {
+      name: "อัปเดต/ยืนยันล่าสุด",
+      value: verifiedAt
+    },
+    {
+      name: "ความมั่นใจ",
+      value: confidenceLabel(result.confidence)
+    }
+  );
 
   return new EmbedBuilder()
     .setTitle("คำตอบจากฐานข้อมูล")
     .setColor(0x1f8b4c)
-    .addFields(
-      {
-        name: "คำถาม",
-        value: truncate(question)
-      },
-      {
-        name: "คำตอบ",
-        value: truncate(result.faq.answer)
-      },
-      {
-        name: "หมวดหมู่",
-        value: truncate(result.faq.category, 256)
-      },
-      {
-        name: "แหล่งที่มา",
-        value: truncate(sourceValue)
-      },
-      {
-        name: "อัปเดต/ยืนยันล่าสุด",
-        value: verifiedAt
-      },
-      {
-        name: "ความมั่นใจ",
-        value: "สูง"
-      }
-    );
+    .addFields(fields);
 }
 
 export function createNotFoundEmbed(question: string): EmbedBuilder {

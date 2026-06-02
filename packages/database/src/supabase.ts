@@ -35,6 +35,20 @@ type FAQWithSourceRow = FAQRow & {
   source: SourceRow | null;
 };
 
+type FAQAliasRow = {
+  id: string;
+  faq_id: string;
+  alias: string;
+  created_at: string;
+};
+
+type FAQKeywordRow = {
+  id: string;
+  faq_id: string;
+  keyword: string;
+  created_at: string;
+};
+
 type QuestionLogRow = {
   id: string;
   user_question: string;
@@ -96,6 +110,24 @@ type SupabaseSchema = {
         };
         Relationships: [];
         Update: Partial<SourceRow>;
+      };
+      faq_aliases: {
+        Row: FAQAliasRow;
+        Insert: Omit<FAQAliasRow, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<FAQAliasRow>;
+      };
+      faq_keywords: {
+        Row: FAQKeywordRow;
+        Insert: Omit<FAQKeywordRow, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<FAQKeywordRow>;
       };
     };
     Views: Record<string, never>;
@@ -213,6 +245,76 @@ export function createSupabaseDatabaseService(
       return {
         data: data?.map(mapFaqWithSource) ?? null,
         error: mapError(error)
+      };
+    },
+    async getKnowledgeEntries() {
+      const { data, error } = await client
+        .from("faqs")
+        .select("*, source:sources(*)")
+        .eq("status", "active")
+        .order("category", { ascending: true })
+        .returns<FAQWithSourceRow[]>();
+
+      if (error) {
+        return {
+          data: null,
+          error: mapError(error)
+        };
+      }
+
+      const rows = data ?? [];
+      const faqIds = rows.map((row) => row.id);
+
+      if (faqIds.length === 0) {
+        return {
+          data: [],
+          error: null
+        };
+      }
+
+      const [aliasResult, keywordResult] = await Promise.all([
+        client.from("faq_aliases").select("*").in("faq_id", faqIds),
+        client.from("faq_keywords").select("*").in("faq_id", faqIds)
+      ]);
+
+      if (aliasResult.error) {
+        return {
+          data: null,
+          error: mapError(aliasResult.error)
+        };
+      }
+
+      if (keywordResult.error) {
+        return {
+          data: null,
+          error: mapError(keywordResult.error)
+        };
+      }
+
+      const aliasesByFaqId = new Map<string, string[]>();
+      for (const alias of aliasResult.data ?? []) {
+        aliasesByFaqId.set(alias.faq_id, [
+          ...(aliasesByFaqId.get(alias.faq_id) ?? []),
+          alias.alias
+        ]);
+      }
+
+      const keywordsByFaqId = new Map<string, string[]>();
+      for (const keyword of keywordResult.data ?? []) {
+        keywordsByFaqId.set(keyword.faq_id, [
+          ...(keywordsByFaqId.get(keyword.faq_id) ?? []),
+          keyword.keyword
+        ]);
+      }
+
+      return {
+        data: rows.map((row) => ({
+          ...mapFaqWithSource(row),
+          aliases: aliasesByFaqId.get(row.id) ?? [],
+          faqId: row.id,
+          keywords: keywordsByFaqId.get(row.id) ?? []
+        })),
+        error: null
       };
     },
     async insertFeedback(input) {

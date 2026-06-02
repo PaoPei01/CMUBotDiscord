@@ -10,6 +10,7 @@
     "dev:admin": "corepack pnpm --filter @campus-qa/admin dev",
     "dev:bot": "corepack pnpm --filter @campus-qa/bot dev",
     "lint": "eslint .",
+    "test": "corepack pnpm --filter @campus-qa/knowledge test",
     "typecheck": "corepack pnpm -r typecheck"
   },
   "devDependencies": {
@@ -19,6 +20,7 @@
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.20.0"
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
   }
 }

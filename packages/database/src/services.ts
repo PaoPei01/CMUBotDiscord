@@ -8,6 +8,13 @@ import type {
   Source
 } from "./types.js";
 
+export type KnowledgeEntryRow = FAQ & {
+  aliases: string[];
+  faqId: string;
+  keywords: string[];
+  source: Source | null;
+};
+
 export type DatabaseError = {
   message: string;
 };
@@ -19,6 +26,7 @@ export type DatabaseResult<T> = {
 
 export type DatabaseServiceClient = {
   getActiveFaqs(): Promise<DatabaseResult<Array<FAQ & { source: Source | null }>>>;
+  getKnowledgeEntries(): Promise<DatabaseResult<KnowledgeEntryRow[]>>;
   findFaqByExactQuestion(
     question: string
   ): Promise<DatabaseResult<(FAQ & { source: Source | null }) | null>>;
@@ -54,6 +62,12 @@ function toFaq(row: FAQ & { source: Source | null }): FAQ {
 export async function getActiveFaqs(client: DatabaseServiceClient): Promise<FAQ[]> {
   const rows = assertDatabaseResult(await client.getActiveFaqs());
   return rows.map(toFaq);
+}
+
+export async function getKnowledgeEntries(
+  client: DatabaseServiceClient
+): Promise<KnowledgeEntryRow[]> {
+  return assertDatabaseResult(await client.getKnowledgeEntries());
 }
 
 export async function findFaqByExactQuestion(

@@ -2,6 +2,7 @@ export { createSupabaseClientPlaceholder } from "./client.js";
 export {
   findFaqByExactQuestion,
   getActiveFaqs,
+  getKnowledgeEntries,
   logQuestion,
   saveFeedback
 } from "./services.js";
@@ -14,7 +15,12 @@ export type {
   AdminQuestionLog
 } from "./admin.js";
 export type { SupabaseClientPlaceholder } from "./client.js";
-export type { DatabaseError, DatabaseResult, DatabaseServiceClient } from "./services.js";
+export type {
+  DatabaseError,
+  DatabaseResult,
+  DatabaseServiceClient,
+  KnowledgeEntryRow
+} from "./services.js";
 export type {
   Database,
   FAQ,

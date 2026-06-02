@@ -175,6 +175,8 @@ Validation results:
 
 ## Phase 5: Better Search
 
+Status: complete.
+
 Goal: Improve retrieval without AI.
 
 Search layers:
@@ -185,9 +187,31 @@ Search layers:
 - Full-text search
 - Fuzzy search
 
-Done when:
+Completed scope:
 
-- Misspelled or varied questions still find the right verified FAQ.
+- `KnowledgeEngine` in `packages/knowledge`.
+- `searchKnowledge(question)` returning answer, FAQ id, confidence, method, and source.
+- Thai/English text normalization helpers.
+- Exact, alias, keyword, deterministic full-text-style token overlap, and Fuse.js fuzzy search.
+- `/ask` now uses `KnowledgeEngine` instead of exact-only lookup.
+- User-facing low-confidence note for confidence `60-74`.
+- Not-found response for confidence below `60`.
+- Unit tests for normalization, exact, alias, keyword, and fuzzy confidence.
+
+Not included:
+
+- No AI implementation.
+- No embeddings.
+- No database schema changes.
+- PostgreSQL full-text indexing/RPC is deferred; current `full_text` method uses deterministic token overlap with a TODO for indexed PostgreSQL retrieval.
+
+Validation results:
+
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.
 
 ## Phase 6: Vector Search
 

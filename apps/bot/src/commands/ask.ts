@@ -1,4 +1,5 @@
-import { findFaqByExactQuestion, logQuestion } from "@campus-qa/database";
+import { logQuestion } from "@campus-qa/database";
+import type { SearchResult } from "@campus-qa/knowledge";
 import { SlashCommandBuilder } from "discord.js";
 
 import type { BotCommand } from "../services/commandRegistry.js";
@@ -12,6 +13,10 @@ import {
 
 function normalizeQuestion(question: string): string {
   return question.trim().replace(/\s+/g, " ");
+}
+
+function shouldShowAnswer(searchResult: SearchResult): boolean {
+  return searchResult.answer !== null && searchResult.faqId !== null && searchResult.confidence >= 60;
 }
 
 export const askCommand: BotCommand = {
@@ -47,15 +52,15 @@ export const askCommand: BotCommand = {
     }
 
     try {
-      const searchResult = await findFaqByExactQuestion(context.database, question);
+      const searchResult = await context.knowledge.searchKnowledge(question);
       const responseTimeMs = Date.now() - startedAt;
 
       const questionLog = await logQuestion(context.database, {
-        confidence: searchResult?.confidence ?? null,
+        confidence: searchResult.confidence,
         discordGuildId: interaction.guildId,
         discordUserId: interaction.user.id,
-        matchedFaqId: searchResult?.faq.id ?? null,
-        method: searchResult?.method ?? null,
+        matchedFaqId: searchResult.faqId,
+        method: searchResult.method,
         responseTimeMs,
         userQuestion: question
       });
@@ -63,15 +68,16 @@ export const askCommand: BotCommand = {
       context.logger.info(
         {
           command: "ask",
-          matchedFaqId: searchResult?.faq.id ?? null,
-          method: searchResult?.method ?? "none",
+          confidence: searchResult.confidence,
+          matchedFaqId: searchResult.faqId,
+          method: searchResult.method,
           questionLogId: questionLog.id,
           responseTimeMs
         },
         "Completed ask command search"
       );
 
-      if (searchResult) {
+      if (shouldShowAnswer(searchResult)) {
         await interaction.reply({
           components: createAnswerComponents(questionLog.id),
           embeds: [createAnswerEmbed({ question, result: searchResult })]
@@ -89,7 +95,7 @@ export const askCommand: BotCommand = {
           command: "ask",
           error,
           guildId: interaction.guildId,
-          searchMethod: "exact"
+          searchMethod: "knowledge"
         },
         "Ask command failed"
       );

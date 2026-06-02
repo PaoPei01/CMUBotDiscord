@@ -36,6 +36,16 @@ export type FAQKeyword = {
   createdAt: string;
 };
 
+export type FAQEmbedding = {
+  id: string;
+  faqId: string;
+  content: string;
+  embedding: number[] | null;
+  embeddingModel: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type SearchResult = {
   faq: FAQ;
   source: Source | null;
@@ -81,6 +91,13 @@ export type NewFeedback = {
   discordUserId?: string | null;
 };
 
+export type NewFAQEmbedding = {
+  faqId: string;
+  content: string;
+  embedding: number[];
+  embeddingModel: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -117,6 +134,15 @@ export type Database = {
           createdAt?: string;
         };
         Update: Partial<FAQKeyword>;
+      };
+      faq_embeddings: {
+        Row: FAQEmbedding;
+        Insert: Omit<FAQEmbedding, "id" | "createdAt" | "updatedAt"> & {
+          id?: string;
+          createdAt?: string;
+          updatedAt?: string;
+        };
+        Update: Partial<FAQEmbedding>;
       };
       question_logs: {
         Row: QuestionLog;

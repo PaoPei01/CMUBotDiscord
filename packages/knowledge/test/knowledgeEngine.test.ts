@@ -7,7 +7,11 @@ import {
   normalizeWhitespace,
   removeRepeatedSpaces
 } from "../src/index.js";
-import type { KnowledgeEntry, KnowledgeRepository } from "../src/index.js";
+import type {
+  KnowledgeEntry,
+  KnowledgeRepository,
+  VectorKnowledgeRepository
+} from "../src/index.js";
 
 const source = {
   createdAt: "2026-06-02T00:00:00Z",
@@ -112,5 +116,32 @@ describe("KnowledgeEngine", () => {
     expect(result.faqId).toBe("cmu_account_001");
     expect(result.confidence).toBeGreaterThanOrEqual(60);
     expect(result.confidence).toBeLessThanOrEqual(80);
+  });
+
+  it("returns vector matches when deterministic search layers do not match", async () => {
+    const vectorRepository: VectorKnowledgeRepository = {
+      findSimilarByEmbedding() {
+        return Promise.resolve([
+          {
+            ...entries[2]!,
+            similarity: 0.86
+          }
+        ]);
+      }
+    };
+    const result = await new KnowledgeEngine(repository, {
+      embeddingProvider: {
+        modelName: "test-embedding-model",
+        embed() {
+          return Promise.resolve([0.1, 0.2, 0.3]);
+        }
+      },
+      vectorRepository
+    }).searchKnowledge("เอกสารภาพหน้าตรงใช้ประกอบอะไร");
+
+    expect(result.method).toBe("vector");
+    expect(result.faqId).toBe("photo_spec_001");
+    expect(result.confidence).toBeGreaterThanOrEqual(75);
+    expect(result.confidence).toBeLessThanOrEqual(90);
   });
 });

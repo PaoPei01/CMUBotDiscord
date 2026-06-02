@@ -1,10 +1,12 @@
 import Fuse from "fuse.js";
 
+import type { EmbeddingProvider } from "@campus-qa/ai";
 import type {
   KnowledgeEntry,
   KnowledgeRepository,
   SearchMethod,
-  SearchResult
+  SearchResult,
+  VectorKnowledgeRepository
 } from "./types.js";
 
 export type {
@@ -12,8 +14,16 @@ export type {
   KnowledgeRepository,
   KnowledgeSearchResult,
   SearchMethod,
-  SearchResult
+  SearchResult,
+  VectorKnowledgeRepository,
+  VectorKnowledgeMatch
 } from "./types.js";
+
+export type KnowledgeEngineVectorOptions = {
+  embeddingProvider: EmbeddingProvider;
+  vectorRepository: VectorKnowledgeRepository;
+  vectorLimit?: number;
+};
 
 const noneResult: SearchResult = {
   answer: null,
@@ -78,8 +88,37 @@ function tokenOverlapScore(question: string, entry: KnowledgeEntry): number {
   return matches / questionTokens.length;
 }
 
+export function buildEmbeddingContent(entry: KnowledgeEntry): string {
+  return normalizeWhitespace(
+    [
+      `Category: ${entry.category}`,
+      `Question: ${entry.question}`,
+      `Answer: ${entry.answer}`,
+      entry.aliases.length > 0 ? `Aliases: ${entry.aliases.join(", ")}` : "",
+      entry.keywords.length > 0 ? `Keywords: ${entry.keywords.join(", ")}` : ""
+    ]
+      .filter(Boolean)
+      .join("\n")
+  );
+}
+
+function vectorConfidence(similarity: number): number {
+  if (similarity >= 0.8) {
+    return Math.min(90, Math.max(75, Math.round(75 + ((similarity - 0.8) / 0.2) * 15)));
+  }
+
+  if (similarity >= 0.65) {
+    return Math.min(75, Math.max(60, Math.round(60 + ((similarity - 0.65) / 0.15) * 15)));
+  }
+
+  return 0;
+}
+
 export class KnowledgeEngine {
-  constructor(private readonly repository: KnowledgeRepository) {}
+  constructor(
+    private readonly repository: KnowledgeRepository,
+    private readonly vectorOptions?: KnowledgeEngineVectorOptions
+  ) {}
 
   async searchKnowledge(question: string): Promise<SearchResult> {
     const normalizedQuestion = normalizeSearchText(question);
@@ -149,6 +188,37 @@ export class KnowledgeEngine {
       }
     }
 
+    const vectorResult = await this.searchVector(normalizedQuestion);
+
+    if (vectorResult) {
+      return vectorResult;
+    }
+
     return noneResult;
+  }
+
+  private async searchVector(normalizedQuestion: string): Promise<SearchResult | null> {
+    if (!this.vectorOptions) {
+      return null;
+    }
+
+    const embedding = await this.vectorOptions.embeddingProvider.embed(normalizedQuestion);
+    const [match] = await this.vectorOptions.vectorRepository.findSimilarByEmbedding({
+      embedding,
+      limit: this.vectorOptions.vectorLimit ?? 5,
+      modelName: this.vectorOptions.embeddingProvider.modelName
+    });
+
+    if (!match) {
+      return null;
+    }
+
+    const confidence = vectorConfidence(match.similarity);
+
+    if (confidence < 60) {
+      return null;
+    }
+
+    return buildResult(match, "vector", confidence);
   }
 }

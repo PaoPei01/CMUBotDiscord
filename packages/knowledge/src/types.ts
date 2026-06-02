@@ -6,6 +6,7 @@ export type SearchMethod =
   | "keyword"
   | "full_text"
   | "fuzzy"
+  | "vector"
   | "none";
 
 export type SearchResult = {
@@ -29,6 +30,18 @@ export type KnowledgeEntry = {
 
 export type KnowledgeRepository = {
   getKnowledgeEntries(): Promise<KnowledgeEntry[]>;
+};
+
+export type VectorKnowledgeMatch = KnowledgeEntry & {
+  similarity: number;
+};
+
+export type VectorKnowledgeRepository = {
+  findSimilarByEmbedding(input: {
+    embedding: number[];
+    limit?: number;
+    modelName: string;
+  }): Promise<VectorKnowledgeMatch[]>;
 };
 
 export type KnowledgeSearchResult = SearchResult;

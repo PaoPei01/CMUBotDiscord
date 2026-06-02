@@ -1,10 +1,13 @@
 export { createSupabaseClientPlaceholder } from "./client.js";
 export {
   findFaqByExactQuestion,
+  findSimilarKnowledgeByEmbedding,
   getActiveFaqs,
+  getExistingEmbeddingFaqIds,
   getKnowledgeEntries,
   logQuestion,
-  saveFeedback
+  saveFeedback,
+  upsertFaqEmbedding
 } from "./services.js";
 export { createSupabaseAdminDatabase } from "./admin.js";
 export { createSupabaseDatabaseService } from "./supabase.js";
@@ -19,16 +22,19 @@ export type {
   DatabaseError,
   DatabaseResult,
   DatabaseServiceClient,
-  KnowledgeEntryRow
+  KnowledgeEntryRow,
+  VectorKnowledgeEntryRow
 } from "./services.js";
 export type {
   Database,
   FAQ,
   FAQAlias,
+  FAQEmbedding,
   FAQKeyword,
   FAQStatus,
   Feedback,
   FeedbackVote,
+  NewFAQEmbedding,
   NewFeedback,
   NewQuestionLog,
   QuestionLog,

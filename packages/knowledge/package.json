@@ -13,15 +13,20 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "embeddings:generate": "tsx --conditions development src/scripts/generateEmbeddings.ts",
+    "embeddings:regenerate": "tsx --conditions development src/scripts/regenerateFaqEmbedding.ts",
+    "embeddings:search": "tsx --conditions development src/scripts/searchSimilarFaqs.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@campus-qa/ai": "workspace:*",
     "@campus-qa/database": "workspace:*",
     "@campus-qa/shared": "workspace:*",
     "fuse.js": "^7.1.0"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "vitest": "^2.1.8",
     "typescript": "^5.7.3"
   }

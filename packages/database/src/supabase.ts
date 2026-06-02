@@ -1,8 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-import type { DatabaseError, DatabaseServiceClient } from "./services.js";
+import type {
+  DatabaseError,
+  DatabaseServiceClient,
+  VectorKnowledgeEntryRow
+} from "./services.js";
 import type {
   FAQ,
+  FAQEmbedding,
   FAQStatus,
   Feedback,
   FeedbackVote,
@@ -70,6 +75,22 @@ type FeedbackRow = {
   created_at: string;
 };
 
+type FAQEmbeddingRow = {
+  id: string;
+  faq_id: string;
+  content: string;
+  embedding: number[] | null;
+  embedding_model: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type MatchFAQEmbeddingRow = {
+  faq_id: string;
+  content: string;
+  similarity: number;
+};
+
 type SupabaseSchema = {
   public: {
     Tables: {
@@ -129,9 +150,28 @@ type SupabaseSchema = {
         Relationships: [];
         Update: Partial<FAQKeywordRow>;
       };
+      faq_embeddings: {
+        Row: FAQEmbeddingRow;
+        Insert: Omit<FAQEmbeddingRow, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<FAQEmbeddingRow>;
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      match_faq_embeddings: {
+        Args: {
+          query_embedding: number[];
+          match_embedding_model: string;
+          match_count?: number;
+        };
+        Returns: MatchFAQEmbeddingRow[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -207,6 +247,18 @@ function mapFeedback(row: FeedbackRow): Feedback {
   };
 }
 
+function mapFaqEmbedding(row: FAQEmbeddingRow): FAQEmbedding {
+  return {
+    content: row.content,
+    createdAt: row.created_at,
+    embedding: row.embedding,
+    embeddingModel: row.embedding_model,
+    faqId: row.faq_id,
+    id: row.id,
+    updatedAt: row.updated_at
+  };
+}
+
 export function createSupabaseDatabaseService(
   options: SupabaseAdapterOptions
 ): DatabaseServiceClient {
@@ -220,7 +272,7 @@ export function createSupabaseDatabaseService(
     }
   );
 
-  return {
+  const service: DatabaseServiceClient = {
     async findFaqByExactQuestion(question) {
       const { data, error } = await client
         .from("faqs")
@@ -317,6 +369,72 @@ export function createSupabaseDatabaseService(
         error: null
       };
     },
+    async getExistingEmbeddingFaqIds(modelName) {
+      const { data, error } = await client
+        .from("faq_embeddings")
+        .select("faq_id")
+        .eq("embedding_model", modelName);
+
+      return {
+        data: data?.map((row) => row.faq_id) ?? null,
+        error: mapError(error)
+      };
+    },
+    async findSimilarKnowledgeByEmbedding(input) {
+      const { data, error } = await client.rpc("match_faq_embeddings", {
+        match_count: input.limit ?? 5,
+        match_embedding_model: input.modelName,
+        query_embedding: input.embedding
+      });
+
+      if (error) {
+        return {
+          data: null,
+          error: mapError(error)
+        };
+      }
+
+      const matches = data ?? [];
+
+      if (matches.length === 0) {
+        return {
+          data: [],
+          error: null
+        };
+      }
+
+      const knowledgeResult = await service.getKnowledgeEntries();
+
+      if (knowledgeResult.error || knowledgeResult.data === null) {
+        return {
+          data: null,
+          error: knowledgeResult.error ?? { message: "Failed to load FAQ entries" }
+        };
+      }
+
+      const entriesById = new Map(
+        knowledgeResult.data.map((entry) => [entry.faqId, entry])
+      );
+
+      return {
+        data: matches
+          .map((match) => {
+            const entry = entriesById.get(match.faq_id);
+
+            if (!entry) {
+              return null;
+            }
+
+            return {
+              ...entry,
+              embeddingContent: match.content,
+              similarity: match.similarity
+            };
+          })
+          .filter((entry): entry is VectorKnowledgeEntryRow => entry !== null),
+        error: null
+      };
+    },
     async insertFeedback(input) {
       const { data, error } = await client
         .from("feedback")
@@ -353,6 +471,30 @@ export function createSupabaseDatabaseService(
         data: data ? mapQuestionLog(data) : null,
         error: mapError(error)
       };
+    },
+    async upsertFaqEmbedding(input) {
+      const { data, error } = await client
+        .from("faq_embeddings")
+        .upsert(
+          {
+            content: input.content,
+            embedding: input.embedding,
+            embedding_model: input.embeddingModel,
+            faq_id: input.faqId
+          },
+          {
+            onConflict: "faq_id,embedding_model"
+          }
+        )
+        .select()
+        .single();
+
+      return {
+        data: data ? mapFaqEmbedding(data) : null,
+        error: mapError(error)
+      };
     }
   };
+
+  return service;
 }

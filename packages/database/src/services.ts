@@ -1,6 +1,8 @@
 import type {
   FAQ,
+  FAQEmbedding,
   Feedback,
+  NewFAQEmbedding,
   NewFeedback,
   NewQuestionLog,
   QuestionLog,
@@ -15,6 +17,11 @@ export type KnowledgeEntryRow = FAQ & {
   source: Source | null;
 };
 
+export type VectorKnowledgeEntryRow = KnowledgeEntryRow & {
+  embeddingContent: string;
+  similarity: number;
+};
+
 export type DatabaseError = {
   message: string;
 };
@@ -27,9 +34,16 @@ export type DatabaseResult<T> = {
 export type DatabaseServiceClient = {
   getActiveFaqs(): Promise<DatabaseResult<Array<FAQ & { source: Source | null }>>>;
   getKnowledgeEntries(): Promise<DatabaseResult<KnowledgeEntryRow[]>>;
+  getExistingEmbeddingFaqIds(modelName: string): Promise<DatabaseResult<string[]>>;
+  findSimilarKnowledgeByEmbedding(input: {
+    embedding: number[];
+    limit?: number;
+    modelName: string;
+  }): Promise<DatabaseResult<VectorKnowledgeEntryRow[]>>;
   findFaqByExactQuestion(
     question: string
   ): Promise<DatabaseResult<(FAQ & { source: Source | null }) | null>>;
+  upsertFaqEmbedding(input: NewFAQEmbedding): Promise<DatabaseResult<FAQEmbedding>>;
   insertQuestionLog(input: NewQuestionLog): Promise<DatabaseResult<QuestionLog>>;
   insertFeedback(input: NewFeedback): Promise<DatabaseResult<Feedback>>;
 };
@@ -68,6 +82,31 @@ export async function getKnowledgeEntries(
   client: DatabaseServiceClient
 ): Promise<KnowledgeEntryRow[]> {
   return assertDatabaseResult(await client.getKnowledgeEntries());
+}
+
+export async function getExistingEmbeddingFaqIds(
+  client: DatabaseServiceClient,
+  modelName: string
+): Promise<string[]> {
+  return assertDatabaseResult(await client.getExistingEmbeddingFaqIds(modelName));
+}
+
+export async function findSimilarKnowledgeByEmbedding(
+  client: DatabaseServiceClient,
+  input: {
+    embedding: number[];
+    limit?: number;
+    modelName: string;
+  }
+): Promise<VectorKnowledgeEntryRow[]> {
+  return assertDatabaseResult(await client.findSimilarKnowledgeByEmbedding(input));
+}
+
+export async function upsertFaqEmbedding(
+  client: DatabaseServiceClient,
+  input: NewFAQEmbedding
+): Promise<FAQEmbedding> {
+  return assertDatabaseResult(await client.upsertFaqEmbedding(input));
 }
 
 export async function findFaqByExactQuestion(

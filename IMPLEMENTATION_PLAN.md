@@ -215,6 +215,8 @@ Validation results:
 
 ## Phase 6: Vector Search
 
+Status: complete.
+
 Goal: Add semantic search.
 
 Scope:
@@ -224,9 +226,37 @@ Scope:
 - Embedding provider abstraction
 - Vector similarity search
 
-Done when:
+Completed scope:
 
-- Semantically similar questions match the correct verified FAQ.
+- Supabase migration enabling `vector`, adding `faq_embeddings`, vector indexes, and `match_faq_embeddings` RPC.
+- `EmbeddingProvider` interface plus `GeminiEmbeddingProvider` placeholder in `packages/ai`.
+- Database service methods for existing embedding checks, FAQ embedding upsert, and vector similarity lookup.
+- KnowledgeEngine vector layer after exact, alias, keyword, full-text, and fuzzy search.
+- Vector confidence mapping:
+  - high similarity returns confidence `75-90`
+  - medium similarity returns confidence `60-75`
+  - below threshold returns no result
+- Server-side embedding scripts:
+  - `pnpm embeddings:generate`
+  - `pnpm embeddings:regenerate <faq-id>`
+  - `pnpm embeddings:search <question>`
+- Environment placeholders for `GEMINI_API_KEY`, `EMBEDDING_PROVIDER`, and `EMBEDDING_MODEL`.
+- Unit test coverage for vector fallback confidence.
+
+Not included:
+
+- No AI answer composer.
+- No AI-generated user answers.
+- No Discord-side embedding provider calls; `/ask` does not configure a provider, so vector API calls only happen in explicit scripts or future server-side wiring.
+- No production Gemini client implementation yet; the provider is a reviewed placeholder until a real embedding client is added.
+
+Validation results:
+
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.
 
 ## Phase 7: AI Answer Composer
 

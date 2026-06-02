@@ -58,6 +58,78 @@ type FeedbackRow = {
   created_at: string;
 };
 
+type KnowledgeSourceRow = {
+  id: string;
+  name: string;
+  source_type: "pdf" | "docx" | "txt" | "markdown" | "url";
+  url: string | null;
+  file_name: string | null;
+  mime_type: string | null;
+  content_hash: string | null;
+  status: "processing" | "processed" | "failed" | "archived";
+  created_at: string;
+  updated_at: string;
+};
+
+type IngestionJobRow = {
+  id: string;
+  knowledge_source_id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  parser: string;
+  chunk_size_words: number;
+  overlap_words: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+};
+
+type DraftFAQStatus = "pending" | "approved" | "rejected" | "duplicate";
+
+type DraftFAQRow = {
+  id: string;
+  ingestion_job_id: string;
+  knowledge_source_id: string;
+  question: string;
+  answer: string;
+  category: string;
+  confidence: number;
+  status: DraftFAQStatus;
+  duplicate_of_faq_id: string | null;
+  duplicate_of_draft_id: string | null;
+  duplicate_confidence: number | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type DraftKeywordRow = {
+  id: string;
+  draft_faq_id: string;
+  keyword: string;
+  created_at: string;
+};
+
+type KnowledgeReviewRow = {
+  id: string;
+  draft_faq_id: string | null;
+  action: "approve" | "reject" | "edit" | "bulk_approve" | "bulk_reject";
+  reviewer: string | null;
+  notes: string | null;
+  production_faq_id: string | null;
+  created_at: string;
+};
+
+type KnowledgeImportLogRow = {
+  id: string;
+  ingestion_job_id: string | null;
+  draft_faq_id: string | null;
+  action: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 type SupabaseAdminSchema = {
   public: {
     Tables: {
@@ -117,6 +189,63 @@ type SupabaseAdminSchema = {
         Relationships: [];
         Update: Partial<FeedbackRow>;
       };
+      knowledge_sources: {
+        Row: KnowledgeSourceRow;
+        Insert: Omit<KnowledgeSourceRow, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<KnowledgeSourceRow>;
+      };
+      ingestion_jobs: {
+        Row: IngestionJobRow;
+        Insert: Omit<IngestionJobRow, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<IngestionJobRow>;
+      };
+      draft_faqs: {
+        Row: DraftFAQRow;
+        Insert: Omit<DraftFAQRow, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<DraftFAQRow>;
+      };
+      draft_keywords: {
+        Row: DraftKeywordRow;
+        Insert: Omit<DraftKeywordRow, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<DraftKeywordRow>;
+      };
+      knowledge_reviews: {
+        Row: KnowledgeReviewRow;
+        Insert: Omit<KnowledgeReviewRow, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<KnowledgeReviewRow>;
+      };
+      knowledge_import_logs: {
+        Row: KnowledgeImportLogRow;
+        Insert: Omit<KnowledgeImportLogRow, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<KnowledgeImportLogRow>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -147,17 +276,67 @@ export type AdminQuestionLog = QuestionLogRow & {
   matched_faq: Pick<FAQRow, "id" | "question"> | null;
 };
 
+export type AdminDraftFAQ = DraftFAQRow & {
+  keywords: DraftKeywordRow[];
+  knowledge_source: KnowledgeSourceRow;
+};
+
+export type AdminDraftFAQInput = {
+  answer: string;
+  category: string;
+  confidence: number;
+  duplicateConfidence: number;
+  duplicateOfDraftId: string | null;
+  duplicateOfFaqId: string | null;
+  keywords: string[];
+  question: string;
+  status: DraftFAQStatus;
+};
+
+export type AdminIngestionInput = {
+  chunkSizeWords: number;
+  contentHash?: string | null;
+  drafts: AdminDraftFAQInput[];
+  fileName?: string | null;
+  mimeType?: string | null;
+  name: string;
+  overlapWords: number;
+  parser: string;
+  sourceType: KnowledgeSourceRow["source_type"];
+  url?: string | null;
+};
+
+export type AdminKnowledgeReview = KnowledgeReviewRow & {
+  draft_faq: Pick<DraftFAQRow, "id" | "question" | "status"> | null;
+};
+
+export type AdminImportLog = KnowledgeImportLogRow;
+
 export type AdminDatabase = {
+  approveDraft(id: string, reviewer?: string | null): Promise<string>;
+  bulkApproveDrafts(ids: string[], reviewer?: string | null): Promise<string[]>;
+  bulkRejectDrafts(ids: string[], reviewer?: string | null): Promise<void>;
   createFaq(input: AdminFAQInput): Promise<string>;
+  createIngestionWithDrafts(input: AdminIngestionInput): Promise<string>;
+  editDraft(
+    id: string,
+    input: Pick<AdminDraftFAQInput, "answer" | "category" | "confidence" | "keywords" | "question">
+  ): Promise<void>;
   getFaq(id: string): Promise<AdminFAQ | null>;
+  getDraft(id: string): Promise<AdminDraftFAQ | null>;
   listCategories(): Promise<string[]>;
+  listDraftDuplicateChecks(): Promise<Array<{ id: string; keywords: string[]; question: string }>>;
+  listDrafts(status?: DraftFAQStatus): Promise<AdminDraftFAQ[]>;
   listFaqs(filters: {
     category?: string;
     query?: string;
     status?: FAQStatus;
   }): Promise<AdminFAQ[]>;
+  listImportLogs(): Promise<AdminImportLog[]>;
   listMissingQuestions(): Promise<AdminQuestionLog[]>;
   listQuestionLogs(): Promise<AdminQuestionLog[]>;
+  listReviews(): Promise<AdminKnowledgeReview[]>;
+  rejectDraft(id: string, reviewer?: string | null): Promise<void>;
   updateFaq(id: string, input: AdminFAQInput): Promise<void>;
 };
 
@@ -193,14 +372,22 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     }
   );
 
-  async function findOrCreateSource(input: AdminFAQInput): Promise<string> {
-    const sourceName = input.sourceName.trim();
-    const sourceUrl = input.sourceUrl?.trim() || null;
+  async function findOrCreateSourceByValues({
+    lastVerifiedAt,
+    sourceName,
+    sourceUrl
+  }: {
+    lastVerifiedAt: string | null;
+    sourceName: string;
+    sourceUrl: string | null;
+  }): Promise<string> {
+    const cleanSourceName = sourceName.trim();
+    const cleanSourceUrl = sourceUrl?.trim() || null;
 
     const existing = await client
       .from("sources")
       .select("*")
-      .eq("name", sourceName)
+      .eq("name", cleanSourceName)
       .maybeSingle();
 
     if (existing.error) {
@@ -211,8 +398,8 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       const updated = await client
         .from("sources")
         .update({
-          last_verified_at: input.lastVerifiedAt,
-          url: sourceUrl
+          last_verified_at: lastVerifiedAt,
+          url: cleanSourceUrl
         })
         .eq("id", existing.data.id)
         .select()
@@ -224,15 +411,23 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     const created = await client
       .from("sources")
       .insert({
-        last_verified_at: input.lastVerifiedAt,
-        name: sourceName,
+        last_verified_at: lastVerifiedAt,
+        name: cleanSourceName,
         source_type: "website",
-        url: sourceUrl
+        url: cleanSourceUrl
       })
       .select()
       .single();
 
     return requireData(created.data, created.error).id;
+  }
+
+  async function findOrCreateSource(input: AdminFAQInput): Promise<string> {
+    return findOrCreateSourceByValues({
+      lastVerifiedAt: input.lastVerifiedAt,
+      sourceName: input.sourceName,
+      sourceUrl: input.sourceUrl
+    });
   }
 
   async function replaceAliasesAndKeywords(
@@ -386,7 +581,270 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     );
   }
 
+  async function getDraft(id: string): Promise<AdminDraftFAQ | null> {
+    const draftResult = await client
+      .from("draft_faqs")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (draftResult.error) {
+      throw new Error(draftResult.error.message);
+    }
+
+    if (!draftResult.data) {
+      return null;
+    }
+
+    const [sourceResult, keywordResult] = await Promise.all([
+      client
+        .from("knowledge_sources")
+        .select("*")
+        .eq("id", draftResult.data.knowledge_source_id)
+        .single(),
+      client
+        .from("draft_keywords")
+        .select("*")
+        .eq("draft_faq_id", id)
+        .order("keyword")
+    ]);
+
+    if (sourceResult.error) {
+      throw new Error(sourceResult.error.message);
+    }
+    if (keywordResult.error) {
+      throw new Error(keywordResult.error.message);
+    }
+
+    return {
+      ...draftResult.data,
+      keywords: keywordResult.data ?? [],
+      knowledge_source: sourceResult.data
+    };
+  }
+
+  async function replaceDraftKeywords(draftId: string, keywords: string[]): Promise<void> {
+    const deleted = await client
+      .from("draft_keywords")
+      .delete()
+      .eq("draft_faq_id", draftId);
+
+    if (deleted.error) {
+      throw new Error(deleted.error.message);
+    }
+
+    const cleanKeywords = compactValues(keywords);
+
+    if (cleanKeywords.length === 0) {
+      return;
+    }
+
+    const inserted = await client.from("draft_keywords").insert(
+      cleanKeywords.map((keyword) => ({
+        draft_faq_id: draftId,
+        keyword
+      }))
+    );
+
+    if (inserted.error) {
+      throw new Error(inserted.error.message);
+    }
+  }
+
+  async function logImport(input: {
+    action: string;
+    draftFaqId?: string | null;
+    ingestionJobId?: string | null;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<void> {
+    const logged = await client.from("knowledge_import_logs").insert({
+      action: input.action,
+      draft_faq_id: input.draftFaqId ?? null,
+      ingestion_job_id: input.ingestionJobId ?? null,
+      message: input.message,
+      metadata: input.metadata ?? {}
+    });
+
+    if (logged.error) {
+      throw new Error(logged.error.message);
+    }
+  }
+
+  async function reviewDraft(input: {
+    action: KnowledgeReviewRow["action"];
+    draftId: string;
+    notes?: string | null;
+    productionFaqId?: string | null;
+    reviewer?: string | null;
+  }): Promise<void> {
+    const reviewed = await client.from("knowledge_reviews").insert({
+      action: input.action,
+      draft_faq_id: input.draftId,
+      notes: input.notes ?? null,
+      production_faq_id: input.productionFaqId ?? null,
+      reviewer: input.reviewer ?? null
+    });
+
+    if (reviewed.error) {
+      throw new Error(reviewed.error.message);
+    }
+  }
+
+  async function approveDraft(id: string, reviewer?: string | null): Promise<string> {
+    const draft = await getDraft(id);
+
+    if (!draft) {
+      throw new Error("Draft FAQ not found");
+    }
+
+    if (draft.status === "duplicate") {
+      throw new Error("Duplicate drafts cannot be approved into production");
+    }
+
+    if (draft.status === "approved") {
+      throw new Error("Draft FAQ is already approved");
+    }
+
+    const sourceId = await findOrCreateSourceByValues({
+      lastVerifiedAt: new Date().toISOString(),
+      sourceName: draft.knowledge_source.name,
+      sourceUrl: draft.knowledge_source.url
+    });
+    const createdFaq = await client
+      .from("faqs")
+      .insert({
+        answer: draft.answer.trim(),
+        category: draft.category.trim(),
+        question: draft.question.trim(),
+        source_id: sourceId,
+        status: "active"
+      })
+      .select()
+      .single();
+    const faq = requireData(createdFaq.data, createdFaq.error);
+    const keywords = compactValues(draft.keywords.map((keyword) => keyword.keyword));
+
+    if (keywords.length > 0) {
+      const insertedKeywords = await client.from("faq_keywords").insert(
+        keywords.map((keyword) => ({
+          faq_id: faq.id,
+          keyword
+        }))
+      );
+
+      if (insertedKeywords.error) {
+        throw new Error(insertedKeywords.error.message);
+      }
+    }
+
+    const updatedDraft = await client
+      .from("draft_faqs")
+      .update({
+        reviewed_at: new Date().toISOString(),
+        status: "approved"
+      })
+      .eq("id", id);
+
+    if (updatedDraft.error) {
+      throw new Error(updatedDraft.error.message);
+    }
+
+    await reviewDraft({
+      action: "approve",
+      draftId: id,
+      productionFaqId: faq.id,
+      reviewer
+    });
+    await logImport({
+      action: "approve",
+      draftFaqId: id,
+      ingestionJobId: draft.ingestion_job_id,
+      message: "Approved draft FAQ into production FAQ",
+      metadata: { productionFaqId: faq.id }
+    });
+
+    return faq.id;
+  }
+
+  async function rejectDraft(id: string, reviewer?: string | null): Promise<void> {
+    const draft = await getDraft(id);
+
+    if (!draft) {
+      throw new Error("Draft FAQ not found");
+    }
+
+    const updated = await client
+      .from("draft_faqs")
+      .update({
+        reviewed_at: new Date().toISOString(),
+        status: "rejected"
+      })
+      .eq("id", id);
+
+    if (updated.error) {
+      throw new Error(updated.error.message);
+    }
+
+    await reviewDraft({
+      action: "reject",
+      draftId: id,
+      reviewer
+    });
+    await logImport({
+      action: "reject",
+      draftFaqId: id,
+      ingestionJobId: draft.ingestion_job_id,
+      message: "Rejected draft FAQ and kept it archived"
+    });
+  }
+
+  async function listDrafts(status?: DraftFAQStatus): Promise<AdminDraftFAQ[]> {
+    let query = client.from("draft_faqs").select("*").order("created_at", {
+      ascending: false
+    });
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    const result = await query;
+
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+
+    const drafts = await Promise.all((result.data ?? []).map((draft) => getDraft(draft.id)));
+    return drafts.filter((draft): draft is AdminDraftFAQ => draft !== null);
+  }
+
   return {
+    approveDraft,
+    async bulkApproveDrafts(ids, reviewer) {
+      const productionFaqIds: string[] = [];
+
+      for (const id of ids) {
+        productionFaqIds.push(await approveDraft(id, reviewer));
+        await reviewDraft({
+          action: "bulk_approve",
+          draftId: id,
+          productionFaqId: productionFaqIds.at(-1) ?? null,
+          reviewer
+        });
+      }
+
+      return productionFaqIds;
+    },
+    async bulkRejectDrafts(ids, reviewer) {
+      for (const id of ids) {
+        await rejectDraft(id, reviewer);
+        await reviewDraft({
+          action: "bulk_reject",
+          draftId: id,
+          reviewer
+        });
+      }
+    },
     async createFaq(input) {
       const sourceId = await findOrCreateSource(input);
       const created = await client
@@ -405,7 +863,104 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       await replaceAliasesAndKeywords(faq.id, input.aliases, input.keywords);
       return faq.id;
     },
+    async createIngestionWithDrafts(input) {
+      const sourceResult = await client
+        .from("knowledge_sources")
+        .insert({
+          content_hash: input.contentHash ?? null,
+          file_name: input.fileName ?? null,
+          mime_type: input.mimeType ?? null,
+          name: input.name.trim(),
+          source_type: input.sourceType,
+          status: "processed",
+          url: input.url ?? null
+        })
+        .select()
+        .single();
+      const source = requireData(sourceResult.data, sourceResult.error);
+      const jobResult = await client
+        .from("ingestion_jobs")
+        .insert({
+          chunk_size_words: input.chunkSizeWords,
+          completed_at: new Date().toISOString(),
+          error_message: null,
+          knowledge_source_id: source.id,
+          overlap_words: input.overlapWords,
+          parser: input.parser,
+          status: "completed"
+        })
+        .select()
+        .single();
+      const job = requireData(jobResult.data, jobResult.error);
+
+      for (const draft of input.drafts) {
+        const draftResult = await client
+          .from("draft_faqs")
+          .insert({
+            answer: draft.answer.trim(),
+            category: draft.category.trim(),
+            confidence: draft.confidence,
+            duplicate_confidence: draft.duplicateConfidence,
+            duplicate_of_draft_id: draft.duplicateOfDraftId,
+            duplicate_of_faq_id: draft.duplicateOfFaqId,
+            ingestion_job_id: job.id,
+            knowledge_source_id: source.id,
+            question: draft.question.trim(),
+            reviewed_at: null,
+            status: draft.status
+          })
+          .select()
+          .single();
+        const createdDraft = requireData(draftResult.data, draftResult.error);
+        await replaceDraftKeywords(createdDraft.id, draft.keywords);
+        await logImport({
+          action: draft.status === "duplicate" ? "duplicate_detected" : "draft_created",
+          draftFaqId: createdDraft.id,
+          ingestionJobId: job.id,
+          message:
+            draft.status === "duplicate"
+              ? "Draft FAQ marked as duplicate and kept out of production"
+              : "Draft FAQ created for review",
+          metadata: {
+            duplicateConfidence: draft.duplicateConfidence,
+            providerParser: input.parser
+          }
+        });
+      }
+
+      await logImport({
+        action: "ingestion_completed",
+        ingestionJobId: job.id,
+        message: "Knowledge ingestion job completed",
+        metadata: { draftCount: input.drafts.length }
+      });
+
+      return job.id;
+    },
+    async editDraft(id, input) {
+      const updated = await client
+        .from("draft_faqs")
+        .update({
+          answer: input.answer.trim(),
+          category: input.category.trim(),
+          confidence: input.confidence,
+          question: input.question.trim(),
+          status: "pending"
+        })
+        .eq("id", id);
+
+      if (updated.error) {
+        throw new Error(updated.error.message);
+      }
+
+      await replaceDraftKeywords(id, input.keywords);
+      await reviewDraft({
+        action: "edit",
+        draftId: id
+      });
+    },
     getFaq,
+    getDraft,
     async listCategories() {
       const result = await client.from("faqs").select("category").order("category");
 
@@ -415,7 +970,29 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
 
       return [...new Set((result.data ?? []).map((row) => row.category))];
     },
+    async listDraftDuplicateChecks() {
+      const drafts = await listDrafts();
+      return drafts.map((draft) => ({
+        id: draft.id,
+        keywords: draft.keywords.map((keyword) => keyword.keyword),
+        question: draft.question
+      }));
+    },
+    listDrafts,
     listFaqs,
+    async listImportLogs() {
+      const result = await client
+        .from("knowledge_import_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+
+      return result.data ?? [];
+    },
     async listMissingQuestions() {
       const result = await client
         .from("question_logs")
@@ -434,6 +1011,38 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       }));
     },
     listQuestionLogs,
+    async listReviews() {
+      const result = await client
+        .from("knowledge_reviews")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+
+      return Promise.all(
+        (result.data ?? []).map(async (review) => {
+          if (!review.draft_faq_id) {
+            return { ...review, draft_faq: null };
+          }
+
+          const draft = await client
+            .from("draft_faqs")
+            .select("id, question, status")
+            .eq("id", review.draft_faq_id)
+            .maybeSingle();
+
+          if (draft.error) {
+            throw new Error(draft.error.message);
+          }
+
+          return { ...review, draft_faq: draft.data };
+        })
+      );
+    },
+    rejectDraft,
     async updateFaq(id, input) {
       const sourceId = await findOrCreateSource(input);
       const updated = await client

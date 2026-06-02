@@ -13,8 +13,13 @@ export { createSupabaseAdminDatabase } from "./admin.js";
 export { createSupabaseDatabaseService } from "./supabase.js";
 export type {
   AdminDatabase,
+  AdminDraftFAQ,
+  AdminDraftFAQInput,
   AdminFAQ,
   AdminFAQInput,
+  AdminImportLog,
+  AdminIngestionInput,
+  AdminKnowledgeReview,
   AdminQuestionLog
 } from "./admin.js";
 export type { SupabaseClientPlaceholder } from "./client.js";

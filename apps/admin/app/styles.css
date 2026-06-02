@@ -166,6 +166,22 @@ th {
   color: #8c2f2f;
 }
 
+.status-pending {
+  background: #e8f0ff;
+  color: #1f4f9d;
+}
+
+.status-approved {
+  background: #dff7e8;
+  color: #176c38;
+}
+
+.status-rejected,
+.status-duplicate {
+  background: #f2e8e8;
+  color: #8c2f2f;
+}
+
 .message {
   border-radius: 6px;
   margin-bottom: 16px;
@@ -180,4 +196,8 @@ th {
 .message-success {
   background: #eaf8ef;
   color: #176c38;
+}
+
+.section-gap {
+  margin-top: 20px;
 }

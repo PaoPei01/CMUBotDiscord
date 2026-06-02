@@ -18,6 +18,40 @@ export type {
   VectorKnowledgeRepository,
   VectorKnowledgeMatch
 } from "./types.js";
+export { chunkText, defaultChunkingOptions } from "./ingestion/chunking.js";
+export { createDraftCandidates, detectDuplicate } from "./ingestion/duplicates.js";
+export {
+  createFAQExtractionProviderFromEnv,
+  FAQ_EXTRACTION_PROMPT,
+  GeminiFAQExtractionProvider,
+  GroqFAQExtractionProvider,
+  parseExtractedFAQs
+} from "./ingestion/extraction.js";
+export {
+  contentHash,
+  detectInputType,
+  normalizeParsedText,
+  parseKnowledgeFile,
+  parseKnowledgeUrl,
+  stripHtml,
+  validateFileInput
+} from "./ingestion/parser.js";
+export {
+  approveDraftForProduction,
+  generateDraftFAQsFromParsedInput
+} from "./ingestion/workflow.js";
+export type {
+  ChunkingOptions,
+  DraftFAQCandidate,
+  DuplicateCheckDraft,
+  DuplicateCheckFAQ,
+  ExtractedFAQ,
+  FAQExtractionProvider,
+  ParsedKnowledgeInput,
+  ProductionFAQApproval,
+  SupportedKnowledgeInput,
+  TextChunk
+} from "./ingestion/types.js";
 
 export type KnowledgeEngineVectorOptions = {
   embeddingProvider: EmbeddingProvider;

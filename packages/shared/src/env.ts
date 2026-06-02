@@ -19,7 +19,8 @@ export const envSchema = z.object({
   EMBEDDING_PROVIDER: z.string().optional(),
   EMBEDDING_MODEL: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
-  GROQ_API_KEY: z.string().optional()
+  GROQ_API_KEY: z.string().optional(),
+  KNOWLEDGE_IMPORT_MAX_BYTES: z.string().optional()
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

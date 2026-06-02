@@ -306,6 +306,8 @@ Validation results:
 
 ## Phase 8: Knowledge Import Drafts
 
+Status: complete.
+
 Goal: Generate draft FAQs from documents.
 
 Supported:
@@ -313,6 +315,7 @@ Supported:
 - PDF
 - DOCX
 - TXT
+- Markdown
 - URL
 
 Rules:
@@ -320,8 +323,58 @@ Rules:
 - AI-generated FAQ goes to draft only.
 - Admin must approve before production.
 
-Done when:
+Completed scope:
 
-- Document creates draft FAQs.
-- Admin can approve or reject.
-- Approved draft becomes production FAQ.
+- Supabase migration for:
+  - `knowledge_sources`
+  - `ingestion_jobs`
+  - `draft_faqs`
+  - `draft_keywords`
+  - `knowledge_reviews`
+  - `knowledge_import_logs`
+- Knowledge ingestion pipeline:
+  - file and URL validation
+  - PDF, DOCX, TXT, Markdown, and URL parsing
+  - text normalization
+  - configurable chunking with default `1000` words and `150` overlap words
+  - AI extraction prompt for explicit FAQ JSON only
+  - draft candidate creation
+  - duplicate detection by exact question, fuzzy similarity, and keyword overlap
+- Admin pages:
+  - `/import`
+  - `/drafts`
+  - `/drafts/[id]`
+  - `/reviews`
+- Draft actions:
+  - approve
+  - reject
+  - edit
+  - bulk approve
+  - bulk reject
+- Approval behavior:
+  - approved drafts copy into `faqs`
+  - draft keywords copy into `faq_keywords`
+  - approval and rejection are logged
+  - rejected drafts remain archived
+  - duplicate drafts cannot be approved directly into production
+- Security controls:
+  - admin-only import/review pages and actions
+  - server-side parsing and database writes
+  - supported file type validation
+  - configurable file size limit via `KNOWLEDGE_IMPORT_MAX_BYTES`
+  - no public uploads
+- Tests for parser validation, chunking, draft creation, approval workflow, and duplicate detection.
+
+Not included:
+
+- No change to `/ask` behavior.
+- No direct import of AI-generated content into production FAQs.
+- No automatic approval.
+
+Validation results:
+
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.

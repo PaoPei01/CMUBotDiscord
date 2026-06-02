@@ -1,3 +1,4 @@
+import type { AIProvider } from "@campus-qa/ai";
 import type { DatabaseServiceClient } from "@campus-qa/database";
 import type { KnowledgeEngine } from "@campus-qa/knowledge";
 import type { ChatInputCommandInteraction } from "discord.js";
@@ -12,6 +13,7 @@ export type BotLogger = {
 };
 
 export type BotContext = {
+  aiProvider: AIProvider | null;
   database: DatabaseServiceClient;
   knowledge: KnowledgeEngine;
   logger: BotLogger;

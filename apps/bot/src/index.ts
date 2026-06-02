@@ -1,3 +1,4 @@
+import { createAIProviderFromEnv } from "@campus-qa/ai";
 import { createSupabaseDatabaseService, getKnowledgeEntries } from "@campus-qa/database";
 import { KnowledgeEngine } from "@campus-qa/knowledge";
 import { createLogger } from "@campus-qa/shared";
@@ -16,11 +17,19 @@ const knowledge = new KnowledgeEngine({
     return getKnowledgeEntries(database);
   }
 });
+const aiProvider = createAIProviderFromEnv({
+  AI_PROVIDER: config.AI_PROVIDER,
+  GEMINI_API_KEY: config.GEMINI_API_KEY,
+  GROQ_API_KEY: config.GROQ_API_KEY
+});
 
-const client = createDiscordClient({ database, knowledge, logger });
+const client = createDiscordClient({ aiProvider, database, knowledge, logger });
 
 try {
-  logger.info({ environment: config.NODE_ENV }, "Starting Campus Discord Q&A Bot");
+  logger.info(
+    { aiProvider: aiProvider?.providerName ?? null, environment: config.NODE_ENV },
+    "Starting Campus Discord Q&A Bot"
+  );
   await client.login(config.DISCORD_TOKEN);
 } catch (error) {
   logger.error({ error }, "Bot startup failed");

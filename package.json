@@ -13,7 +13,7 @@
     "embeddings:regenerate": "corepack pnpm --filter @campus-qa/knowledge embeddings:regenerate",
     "embeddings:search": "corepack pnpm --filter @campus-qa/knowledge embeddings:search",
     "lint": "eslint .",
-    "test": "corepack pnpm --filter @campus-qa/knowledge test",
+    "test": "corepack pnpm -r --if-present test",
     "typecheck": "corepack pnpm -r typecheck"
   },
   "devDependencies": {

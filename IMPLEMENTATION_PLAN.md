@@ -260,6 +260,8 @@ Validation results:
 
 ## Phase 7: AI Answer Composer
 
+Status: complete.
+
 Goal: Use AI only to rewrite answers from verified context.
 
 Rules:
@@ -268,10 +270,39 @@ Rules:
 - AI cannot invent facts.
 - AI must cite sources.
 
-Done when:
+Completed scope:
 
-- AI creates natural answers from existing FAQ/context.
-- No-context questions return the not-found response.
+- `AIProvider` interface for `generateAnswer({ question, contexts })`.
+- Gemini and Groq answer providers selected by `AI_PROVIDER` or inferred from configured API keys.
+- Provider factory that returns `null` when no AI key is configured, preserving deterministic FAQ answers.
+- Prompt template requiring:
+  - answer only from provided verified knowledge
+  - no outside knowledge
+  - no guessing
+  - exact not-found message when context is insufficient
+  - source-name citations
+- Safety guard that refuses empty contexts and rejects uncited AI answers.
+- `/ask` AI policy:
+  - confidence `>= 90`: return FAQ answer directly without AI
+  - confidence `70-89`: use AI only when verified context and provider exist, otherwise fallback to the verified FAQ answer
+  - confidence `< 70`: do not call AI and return the not-found response
+- AI logging fields for provider, usage, prompt context count, and failure reason.
+- Tests covering low-confidence no-call, no-context no-call, retrieved-context-only prompts, and provider failure fallback.
+
+Not included:
+
+- No document import.
+- No AI answers without retrieved verified context.
+- No client-side API key exposure.
+- No removal of direct FAQ answer behavior.
+
+Validation results:
+
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.
 
 ## Phase 8: Knowledge Import Drafts
 

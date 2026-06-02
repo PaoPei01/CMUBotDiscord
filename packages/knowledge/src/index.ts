@@ -29,6 +29,7 @@ const noneResult: SearchResult = {
   answer: null,
   confidence: 0,
   faqId: null,
+  matchedQuestion: null,
   method: "none",
   source: null
 };
@@ -58,6 +59,7 @@ function buildResult(
     answer: entry.answer,
     confidence,
     faqId: entry.faqId,
+    matchedQuestion: entry.question,
     method,
     source: entry.source
   };

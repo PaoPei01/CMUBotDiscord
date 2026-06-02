@@ -13,6 +13,7 @@ export type SearchResult = {
   answer: string | null;
   confidence: number;
   faqId: string | null;
+  matchedQuestion: string | null;
   method: SearchMethod;
   source: Source | null;
 };

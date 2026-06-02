@@ -1,8 +1,8 @@
 import { logQuestion } from "@campus-qa/database";
-import type { SearchResult } from "@campus-qa/knowledge";
 import { SlashCommandBuilder } from "discord.js";
 
 import type { BotCommand } from "../services/commandRegistry.js";
+import { composeAskAnswer } from "../services/aiAnswerComposer.js";
 import {
   createAnswerComponents,
   createAnswerEmbed,
@@ -13,10 +13,6 @@ import {
 
 function normalizeQuestion(question: string): string {
   return question.trim().replace(/\s+/g, " ");
-}
-
-function shouldShowAnswer(searchResult: SearchResult): boolean {
-  return searchResult.answer !== null && searchResult.faqId !== null && searchResult.confidence >= 60;
 }
 
 export const askCommand: BotCommand = {
@@ -53,14 +49,19 @@ export const askCommand: BotCommand = {
 
     try {
       const searchResult = await context.knowledge.searchKnowledge(question);
+      const answerComposition = await composeAskAnswer({
+        aiProvider: context.aiProvider,
+        question,
+        searchResult
+      });
       const responseTimeMs = Date.now() - startedAt;
 
       const questionLog = await logQuestion(context.database, {
-        confidence: searchResult.confidence,
+        confidence: answerComposition.result.confidence,
         discordGuildId: interaction.guildId,
         discordUserId: interaction.user.id,
-        matchedFaqId: searchResult.faqId,
-        method: searchResult.method,
+        matchedFaqId: answerComposition.result.faqId,
+        method: answerComposition.result.method,
         responseTimeMs,
         userQuestion: question
       });
@@ -68,19 +69,23 @@ export const askCommand: BotCommand = {
       context.logger.info(
         {
           command: "ask",
-          confidence: searchResult.confidence,
-          matchedFaqId: searchResult.faqId,
-          method: searchResult.method,
+          ai_provider: answerComposition.aiProvider,
+          ai_used: answerComposition.aiUsed,
+          confidence: answerComposition.result.confidence,
+          failure_reason: answerComposition.failureReason,
+          matchedFaqId: answerComposition.result.faqId,
+          method: answerComposition.result.method,
+          prompt_context_count: answerComposition.promptContextCount,
           questionLogId: questionLog.id,
           responseTimeMs
         },
         "Completed ask command search"
       );
 
-      if (shouldShowAnswer(searchResult)) {
+      if (answerComposition.shouldReplyWithAnswer) {
         await interaction.reply({
           components: createAnswerComponents(questionLog.id),
-          embeds: [createAnswerEmbed({ question, result: searchResult })]
+          embeds: [createAnswerEmbed({ question, result: answerComposition.result })]
         });
         return;
       }

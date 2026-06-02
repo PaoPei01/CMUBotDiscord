@@ -15,9 +15,11 @@ export const envSchema = z.object({
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   DATABASE_URL: z.string().optional(),
+  AI_PROVIDER: z.string().optional(),
   EMBEDDING_PROVIDER: z.string().optional(),
   EMBEDDING_MODEL: z.string().optional(),
-  GEMINI_API_KEY: z.string().optional()
+  GEMINI_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional()
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

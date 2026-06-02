@@ -63,6 +63,9 @@ importers:
 
   apps/bot:
     dependencies:
+      '@campus-qa/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@campus-qa/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -88,6 +91,9 @@ importers:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.19)
 
   packages/ai:
     dependencies:

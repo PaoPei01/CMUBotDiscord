@@ -1,16 +1,23 @@
-import type { Citation } from "@campus-qa/shared";
-
-export type AIComposeInput = {
+export type RetrievedContext = {
+  faqId: string;
+  answer: string;
   question: string;
-  verifiedContext: string;
-  citations: Citation[];
+  sourceName: string;
+  sourceUrl: string | null;
 };
 
-export type AIComposeResult = {
+export type AIAnswer = {
   answer: string;
-  citations: Citation[];
+  citedSourceNames: string[];
+  notFound: boolean;
+};
+
+export type AIGenerateAnswerInput = {
+  question: string;
+  contexts: RetrievedContext[];
 };
 
 export interface AIProvider {
-  composeAnswer(input: AIComposeInput): Promise<AIComposeResult>;
+  readonly providerName: string;
+  generateAnswer(input: AIGenerateAnswerInput): Promise<AIAnswer>;
 }

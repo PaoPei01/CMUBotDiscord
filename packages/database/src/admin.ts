@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-import type { FAQStatus, FeedbackVote } from "./types.js";
+import { randomUUID } from "node:crypto";
+
+import type { FAQPriority, FAQStatus, FeedbackVote } from "./types.js";
 
 type SourceRow = {
   id: string;
@@ -13,12 +15,22 @@ type SourceRow = {
 };
 
 type FAQRow = {
+  answer?: string;
+  answer_full: string | null;
+  answer_short: string;
+  audience: string | null;
   id: string;
   category: string;
+  faq_code: string;
+  faculty_group: string | null;
   question: string;
-  answer: string;
+  priority: FAQPriority;
+  source_page: string | null;
+  source_quote: string | null;
   source_id: string | null;
   status: FAQStatus;
+  valid_from: string | null;
+  valid_until: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -349,6 +361,10 @@ function compactValues(values: string[]): string[] {
   return values.map((value) => value.trim()).filter(Boolean);
 }
 
+function createFaqCode(prefix: string): string {
+  return `${prefix}-${randomUUID()}`;
+}
+
 function requireData<T>(data: T | null, error: { message: string } | null): T {
   if (error) {
     throw new Error(error.message);
@@ -535,7 +551,7 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     }
     if (filters.query) {
       query = query.or(
-        `question.ilike.%${filters.query}%,answer.ilike.%${filters.query}%`
+        `question.ilike.%${filters.query}%,answer.ilike.%${filters.query}%,answer_short.ilike.%${filters.query}%`
       );
     }
 
@@ -715,10 +731,20 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       .from("faqs")
       .insert({
         answer: draft.answer.trim(),
+        answer_full: draft.answer.trim(),
+        answer_short: draft.answer.trim(),
+        audience: null,
         category: draft.category.trim(),
+        faq_code: createFaqCode("draft"),
+        faculty_group: null,
+        priority: "medium",
         question: draft.question.trim(),
+        source_page: null,
+        source_quote: null,
         source_id: sourceId,
-        status: "active"
+        status: "active",
+        valid_from: null,
+        valid_until: null
       })
       .select()
       .single();
@@ -851,10 +877,20 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
         .from("faqs")
         .insert({
           answer: input.answer.trim(),
+          answer_full: input.answer.trim(),
+          answer_short: input.answer.trim(),
+          audience: null,
           category: input.category.trim(),
+          faq_code: createFaqCode("admin"),
+          faculty_group: null,
+          priority: "medium",
           question: input.question.trim(),
+          source_page: null,
+          source_quote: null,
           source_id: sourceId,
-          status: input.status
+          status: input.status,
+          valid_from: null,
+          valid_until: null
         })
         .select()
         .single();
@@ -1049,6 +1085,8 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
         .from("faqs")
         .update({
           answer: input.answer.trim(),
+          answer_full: input.answer.trim(),
+          answer_short: input.answer.trim(),
           category: input.category.trim(),
           question: input.question.trim(),
           source_id: sourceId,

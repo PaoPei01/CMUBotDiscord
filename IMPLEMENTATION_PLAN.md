@@ -430,3 +430,53 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
+
+## FAQ Metadata Schema Update
+
+Status: complete.
+
+Goal: Support richer verified FAQ metadata for university Q&A records.
+
+Completed scope:
+
+- Added a Supabase migration for FAQ metadata fields:
+  - `faq_code`
+  - `audience`
+  - `faculty_group`
+  - `answer_short`
+  - `answer_full`
+  - `source_page`
+  - `source_quote`
+  - `valid_from`
+  - `valid_until`
+  - `priority`
+- Updated `sources.source_type` default to `document`.
+- Expanded FAQ status constraint to `active`, `draft`, `expired`, and `inactive`.
+- Added FAQ priority constraint for `high`, `medium`, and `low`.
+- Added `faq_relations` for related FAQ links.
+- Added indexes for FAQ code, audience, faculty/group, validity dates, and source URL.
+- Backfilled `faq_code` and `answer_short` from existing FAQ rows.
+- Updated TypeScript types for:
+  - `FAQ`
+  - `FAQAlias`
+  - `FAQKeyword`
+  - `FAQRelation`
+  - `Source`
+  - `FAQImportRow`
+  - `FAQImportResult`
+- Kept the legacy `answer` field available in TypeScript/service mapping as a compatibility alias while `answer_short` becomes the canonical Discord response field.
+- Updated admin/database insert paths to provide required metadata defaults for new FAQ rows.
+- Updated seed SQL so fresh Supabase seed data satisfies the new `faq_code` and `answer_short` requirements.
+
+Not included:
+
+- No AI changes.
+- No embedding changes.
+- No Discord behavior changes.
+- No CSV import implementation.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.

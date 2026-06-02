@@ -14,6 +14,10 @@ function dateValue(value: string | null | undefined): string {
   return value.slice(0, 10);
 }
 
+function answerValue(faq: AdminFAQ | undefined): string {
+  return faq?.answer_short ?? faq?.answer ?? "";
+}
+
 export function FaqForm({ action, faq, submitLabel }: FaqFormProps) {
   return (
     <form action={action} className="panel form-grid">
@@ -25,6 +29,8 @@ export function FaqForm({ action, faq, submitLabel }: FaqFormProps) {
         Status
         <select defaultValue={faq?.status ?? "active"} name="status" required>
           <option value="active">active</option>
+          <option value="draft">draft</option>
+          <option value="expired">expired</option>
           <option value="inactive">inactive</option>
         </select>
       </label>
@@ -34,7 +40,7 @@ export function FaqForm({ action, faq, submitLabel }: FaqFormProps) {
       </label>
       <label className="field field-full">
         Answer
-        <textarea defaultValue={faq?.answer} name="answer" required />
+        <textarea defaultValue={answerValue(faq)} name="answer" required />
       </label>
       <label className="field field-full">
         Aliases

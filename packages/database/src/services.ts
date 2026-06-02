@@ -63,12 +63,22 @@ function assertDatabaseResult<T>(result: DatabaseResult<T>): T {
 function toFaq(row: FAQ & { source: Source | null }): FAQ {
   return {
     answer: row.answer,
+    answerFull: row.answerFull,
+    answerShort: row.answerShort,
+    audience: row.audience,
     category: row.category,
     createdAt: row.createdAt,
+    faqCode: row.faqCode,
+    facultyGroup: row.facultyGroup,
     id: row.id,
+    priority: row.priority,
     question: row.question,
+    sourcePage: row.sourcePage,
+    sourceQuote: row.sourceQuote,
     sourceId: row.sourceId,
     status: row.status,
+    validFrom: row.validFrom,
+    validUntil: row.validUntil,
     updatedAt: row.updatedAt
   };
 }

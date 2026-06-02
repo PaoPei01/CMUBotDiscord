@@ -8,6 +8,7 @@ import type {
 import type {
   FAQ,
   FAQEmbedding,
+  FAQPriority,
   FAQStatus,
   Feedback,
   FeedbackVote,
@@ -26,12 +27,22 @@ type SourceRow = {
 };
 
 type FAQRow = {
+  answer?: string;
+  answer_full: string | null;
+  answer_short: string;
+  audience: string | null;
   id: string;
   category: string;
+  faq_code: string;
+  faculty_group: string | null;
   question: string;
-  answer: string;
+  priority: FAQPriority;
+  source_page: string | null;
+  source_quote: string | null;
   source_id: string | null;
   status: FAQStatus;
+  valid_from: string | null;
+  valid_until: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -51,6 +62,13 @@ type FAQKeywordRow = {
   id: string;
   faq_id: string;
   keyword: string;
+  created_at: string;
+};
+
+type FAQRelationRow = {
+  id: string;
+  faq_id: string;
+  related_faq_id: string;
   created_at: string;
 };
 
@@ -150,6 +168,15 @@ type SupabaseSchema = {
         Relationships: [];
         Update: Partial<FAQKeywordRow>;
       };
+      faq_relations: {
+        Row: FAQRelationRow;
+        Insert: Omit<FAQRelationRow, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+        Update: Partial<FAQRelationRow>;
+      };
       faq_embeddings: {
         Row: FAQEmbeddingRow;
         Insert: Omit<FAQEmbeddingRow, "id" | "created_at" | "updated_at"> & {
@@ -203,14 +230,26 @@ function mapSource(row: SourceRow | null): Source | null {
 }
 
 function mapFaq(row: FAQRow): FAQ {
+  const answer = row.answer_short || row.answer || "";
+
   return {
-    answer: row.answer,
+    answer,
+    answerFull: row.answer_full,
+    answerShort: row.answer_short,
+    audience: row.audience,
     category: row.category,
     createdAt: row.created_at,
+    faqCode: row.faq_code,
+    facultyGroup: row.faculty_group,
     id: row.id,
+    priority: row.priority,
     question: row.question,
+    sourcePage: row.source_page,
+    sourceQuote: row.source_quote,
     sourceId: row.source_id,
     status: row.status,
+    validFrom: row.valid_from,
+    validUntil: row.valid_until,
     updatedAt: row.updated_at
   };
 }

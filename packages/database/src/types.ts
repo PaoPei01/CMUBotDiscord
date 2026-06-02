@@ -1,4 +1,5 @@
-export type FAQStatus = "active" | "inactive";
+export type FAQStatus = "active" | "draft" | "expired" | "inactive";
+export type FAQPriority = "high" | "medium" | "low";
 export type FeedbackVote = "up" | "down";
 
 export type Source = {
@@ -12,12 +13,22 @@ export type Source = {
 };
 
 export type FAQ = {
+  answer: string;
+  answerFull: string | null;
+  answerShort: string;
+  audience: string | null;
   id: string;
   category: string;
+  faqCode: string;
+  facultyGroup: string | null;
   question: string;
-  answer: string;
+  priority: FAQPriority;
+  sourcePage: string | null;
+  sourceQuote: string | null;
   sourceId: string | null;
   status: FAQStatus;
+  validFrom: string | null;
+  validUntil: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -33,6 +44,13 @@ export type FAQKeyword = {
   id: string;
   faqId: string;
   keyword: string;
+  createdAt: string;
+};
+
+export type FAQRelation = {
+  id: string;
+  faqId: string;
+  relatedFaqId: string;
   createdAt: string;
 };
 
@@ -98,6 +116,49 @@ export type NewFAQEmbedding = {
   embeddingModel: string;
 };
 
+export type FAQImportRow = {
+  aliases: string[];
+  answerFull: string | null;
+  answerShort: string;
+  audience: string | null;
+  category: string;
+  facultyGroup: string | null;
+  faqId: string;
+  keywords: string[];
+  lastVerified: string;
+  priority: FAQPriority;
+  question: string;
+  relatedFaqIds: string[];
+  sourceName: string;
+  sourcePage: string | null;
+  sourceQuote: string | null;
+  sourceUrl: string | null;
+  status: FAQStatus;
+  validFrom: string | null;
+  validUntil: string | null;
+};
+
+export type FAQImportError = {
+  error: string;
+  faqId: string | null;
+  field: string;
+  rowNumber: number;
+};
+
+export type FAQImportResult = {
+  aliasesImported: number;
+  createdFaqs: number;
+  createdSources: number;
+  dryRun: boolean;
+  keywordsImported: number;
+  relatedFaqLinksImported: number;
+  skippedRows: number;
+  totalRows: number;
+  updatedFaqs: number;
+  updatedSources: number;
+  validationErrors: FAQImportError[];
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -135,6 +196,14 @@ export type Database = {
         };
         Update: Partial<FAQKeyword>;
       };
+      faq_relations: {
+        Row: FAQRelation;
+        Insert: Omit<FAQRelation, "id" | "createdAt"> & {
+          id?: string;
+          createdAt?: string;
+        };
+        Update: Partial<FAQRelation>;
+      };
       faq_embeddings: {
         Row: FAQEmbedding;
         Insert: Omit<FAQEmbedding, "id" | "createdAt" | "updatedAt"> & {
@@ -158,6 +227,7 @@ export type Database = {
     Views: Record<string, never>;
     Functions: Record<string, never>;
     Enums: {
+      faq_priority: FAQPriority;
       faq_status: FAQStatus;
       feedback_vote: FeedbackVote;
     };

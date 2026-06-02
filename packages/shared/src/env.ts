@@ -7,6 +7,7 @@ export const envSchema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
   LOG_LEVEL: logLevelSchema.default("info"),
+  ADMIN_PASSWORD: z.string().optional(),
   DISCORD_TOKEN: z.string().optional(),
   DISCORD_CLIENT_ID: z.string().optional(),
   DISCORD_GUILD_ID: z.string().optional(),

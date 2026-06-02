@@ -138,20 +138,40 @@ Validation results:
 
 ## Phase 4: Admin Minimal
 
+Status: complete.
+
 Goal: Create basic admin interface for FAQ management.
 
 Pages:
 
-- FAQ list
-- Create FAQ
-- Edit FAQ
-- Source list
+- `/faq` FAQ list with search, category filter, and status filter
+- `/faq/new` create FAQ form
+- `/faq/[id]/edit` edit FAQ form
+- `/logs` recent question logs
+- `/missing` unanswered question logs
 
-Done when:
+Completed scope:
 
-- Admin can add FAQ.
-- Admin can edit FAQ.
-- Bot can answer newly added FAQ.
+- Next.js admin pages for FAQ management and question review.
+- FAQ create/edit forms covering category, question, answer, aliases, keywords, source name, source URL, last verified date, and status.
+- Source create-or-update behavior by source name.
+- Alias and keyword replacement on edit.
+- MVP admin protection using `ADMIN_PASSWORD` and an httpOnly cookie.
+- Server-side Supabase service-role access only; no service role key is exposed to browser code.
+- Loading, error, and success states.
+
+Not included:
+
+- No full role-based auth.
+- No AI import.
+- No analytics charts.
+
+Validation results:
+
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
 
 ## Phase 5: Better Search
 

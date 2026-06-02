@@ -142,6 +142,12 @@ Start the admin app:
 pnpm dev:admin
 ```
 
+Admin login:
+
+- Set `ADMIN_PASSWORD` in `.env`.
+- Open `/login`.
+- Enter the configured password.
+
 Register guild slash commands:
 
 ```sh
@@ -152,7 +158,7 @@ The command registration script deploys to the single guild configured by `DISCO
 
 The bot logs in to Discord and listens only for interactions. It does not read normal chat messages.
 
-The admin app currently renders the foundation homepage: `Campus Q&A Admin`.
+The admin app provides FAQ management, question logs, and missing-answer review. Supabase service-role access is used only from server-side code.
 
 ## Environment Variables
 
@@ -205,7 +211,7 @@ Fix all errors before finishing.
 - `pino` provides structured logging.
 - `next`, `react`, and `react-dom` are required for the minimal admin app.
 - `discord.js` is required for the Phase 3 slash command bot.
-- `@supabase/supabase-js` is required for Phase 3 database reads/writes from the server-side bot process.
+- `@supabase/supabase-js` is required for server-side bot and admin database reads/writes.
 
 ## Development Rules
 

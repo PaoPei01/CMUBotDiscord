@@ -76,7 +76,7 @@ Tables:
 Completed scope:
 
 - Supabase migration for verified FAQ schema.
-- Seed SQL with 5 sample FAQs.
+- Seed SQL with 15 prepared CMU new-student FAQs from the test CSV.
 - TypeScript database/domain types for `FAQ`, `Source`, `SearchResult`, `QuestionLog`, and `Feedback`.
 - TypeScript row coverage for `faq_aliases` and `faq_keywords`.
 - Server-side database service functions:

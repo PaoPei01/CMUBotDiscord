@@ -10,7 +10,11 @@ export const envSchema = z.object({
   ADMIN_PASSWORD: z.string().optional(),
   DISCORD_TOKEN: z.string().optional(),
   DISCORD_CLIENT_ID: z.string().optional(),
+  DISCORD_APPLICATION_ID: z.string().optional(),
+  DISCORD_PUBLIC_KEY: z.string().optional(),
+  DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_GUILD_ID: z.string().optional(),
+  DISCORD_INTERACTIONS_ENDPOINT_URL: z.string().optional(),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
@@ -19,6 +23,7 @@ export const envSchema = z.object({
   EMBEDDING_PROVIDER: z.string().optional(),
   EMBEDDING_MODEL: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
   KNOWLEDGE_IMPORT_MAX_BYTES: z.string().optional()
 });

@@ -1,4 +1,4 @@
-import type { AIProvider, RetrievedContext } from "@campus-qa/ai";
+import type { AIContext, AIProvider } from "@campus-qa/ai";
 import type { SearchResult } from "@campus-qa/knowledge";
 
 export type AnswerCompositionResult = {
@@ -10,18 +10,17 @@ export type AnswerCompositionResult = {
   shouldReplyWithAnswer: boolean;
 };
 
-function buildRetrievedContexts(result: SearchResult): RetrievedContext[] {
+function buildRetrievedContexts(result: SearchResult): AIContext[] {
   if (!result.answer || !result.faqId || !result.matchedQuestion || !result.source?.name) {
     return [];
   }
 
   return [
     {
-      answer: result.answer,
-      faqId: result.faqId,
-      question: result.matchedQuestion,
+      content: result.answer,
       sourceName: result.source.name,
-      sourceUrl: result.source.url
+      sourceUrl: result.source.url ?? undefined,
+      title: result.matchedQuestion
     }
   ];
 }
@@ -93,7 +92,7 @@ export async function composeAskAnswer({
       question
     });
 
-    if (aiAnswer.notFound) {
+    if (!aiAnswer.usedContext) {
       return {
         ...base,
         aiUsed: true,

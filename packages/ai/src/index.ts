@@ -1,12 +1,18 @@
 export type { EmbeddingProvider, GeminiEmbeddingProviderOptions } from "./embeddings.js";
 export { GeminiEmbeddingProvider } from "./embeddings.js";
-export { createAIProviderFromEnv } from "./factory.js";
-export { AI_NOT_FOUND_MESSAGE, buildAnswerPrompt } from "./prompt.js";
+export { AIProviderFactory, createAIProviderFromEnv } from "./factory.js";
+export {
+  AI_NOT_FOUND_MESSAGE,
+  buildAnswerPrompt,
+  formatVerifiedContexts
+} from "./promptTemplates.js";
 export { GeminiProvider, GroqProvider } from "./providers.js";
-export { assertRetrievedContexts, guardAIAnswer, parseAIAnswer } from "./safety.js";
+export { hasVerifiedContexts, notFoundAIAnswer } from "./safety.js";
 export type {
-  AIAnswer,
-  AIGenerateAnswerInput,
+  AIContext,
+  AIProviderAnswer,
+  AIProviderFactoryEnv,
+  AIProviderInput,
   AIProvider,
-  RetrievedContext
-} from "./provider.js";
+  AISource
+} from "./types.js";

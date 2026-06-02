@@ -1,0 +1,7 @@
+name = "campus-discord-qa-bot"
+main = "src/index.ts"
+compatibility_date = "2026-06-02"
+
+[vars]
+AI_PROVIDER = "gemini"
+GEMINI_MODEL = "gemini-1.5-flash"

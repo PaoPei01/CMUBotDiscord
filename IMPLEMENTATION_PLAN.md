@@ -378,3 +378,55 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
+
+## Cloudflare Worker AI Integration
+
+Status: complete.
+
+Goal: Connect the Discord Interaction Webhook `/ask` flow to an AI answer composer while keeping verified Supabase FAQ data as the source of truth.
+
+Completed scope:
+
+- Cloudflare Worker app under `apps/worker`.
+- Discord Interaction Webhook route:
+  - `GET /health`
+  - `POST /discord`
+  - Ed25519 signature verification
+  - Discord PING response
+  - deferred response type `5` for `/ask`
+  - background processing with `ctx.waitUntil`
+  - original interaction response edit through Discord webhook token
+- Supabase FAQ search in Worker:
+  - active FAQs only
+  - exact question match
+  - alias match
+  - keyword match
+  - question logging best-effort without blocking responses
+- Worker AI integration:
+  - `AIProvider` interface using verified contexts
+  - Gemini provider as first provider
+  - provider factory for future Groq/OpenAI-style providers
+  - `AI_PROVIDER`, `GEMINI_API_KEY`, and `GEMINI_MODEL` Worker env support
+  - direct FAQ answer for confidence `>= 90`
+  - no AI call for confidence `< 70`
+  - AI call only for confidence `70-89` with verified context
+  - safe fallback to direct FAQ answer when AI fails
+  - not-found response when no verified context exists
+- Logging fields for AI usage, provider, model, confidence, and failure reason without logging secrets.
+- Worker AI decision tests for high confidence, low confidence, empty contexts, AI usage, fallback, and secret-safe output.
+
+Not included:
+
+- No embeddings.
+- No document import changes.
+- No Discord Gateway bot.
+- No normal message reading.
+- No unrelated Discord features.
+
+Validation results:
+
+- `corepack pnpm install` passed.
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.

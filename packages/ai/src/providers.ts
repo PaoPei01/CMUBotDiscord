@@ -1,6 +1,5 @@
-import { buildAnswerPrompt } from "./prompt.js";
-import { assertRetrievedContexts, guardAIAnswer, parseAIAnswer } from "./safety.js";
-import type { AIGenerateAnswerInput, AIAnswer, AIProvider } from "./provider.js";
+import { AI_NOT_FOUND_MESSAGE, buildAnswerPrompt } from "./promptTemplates.js";
+import type { AIProvider, AIProviderAnswer, AIProviderInput, AISource } from "./types.js";
 
 type GeminiProviderOptions = {
   apiKey: string;
@@ -30,6 +29,57 @@ type GroqResponse = {
   }>;
 };
 
+function assertContexts(input: AIProviderInput): void {
+  if (input.contexts.length === 0) {
+    throw new Error("AI answer generation requires verified contexts");
+  }
+
+  for (const context of input.contexts) {
+    if (!context.content.trim()) {
+      throw new Error("AI context content must not be empty");
+    }
+  }
+}
+
+function contextSources(input: AIProviderInput): AISource[] {
+  const sources = new Map<string, AISource>();
+
+  for (const context of input.contexts) {
+    const sourceName = context.sourceName?.trim();
+
+    if (!sourceName) {
+      continue;
+    }
+
+    sources.set(sourceName, {
+      name: sourceName,
+      ...(context.sourceUrl ? { url: context.sourceUrl } : {})
+    });
+  }
+
+  return [...sources.values()];
+}
+
+function guardAnswer(rawAnswer: string, input: AIProviderInput): AIProviderAnswer {
+  assertContexts(input);
+
+  const answer = rawAnswer.trim();
+
+  if (!answer || answer === AI_NOT_FOUND_MESSAGE) {
+    return {
+      answer: AI_NOT_FOUND_MESSAGE,
+      sources: [],
+      usedContext: false
+    };
+  }
+
+  return {
+    answer,
+    sources: contextSources(input),
+    usedContext: true
+  };
+}
+
 async function readJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     throw new Error(`AI provider request failed with status ${response.status}`);
@@ -40,28 +90,26 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 
 export class GeminiProvider implements AIProvider {
   readonly providerName = "gemini";
-  private readonly modelName: string;
+  readonly modelName: string;
 
   constructor(private readonly options: GeminiProviderOptions) {
     this.modelName = options.modelName ?? "gemini-1.5-flash";
   }
 
-  async generateAnswer(input: AIGenerateAnswerInput): Promise<AIAnswer> {
-    assertRetrievedContexts(input.contexts);
+  async generateAnswer(input: AIProviderInput): Promise<AIProviderAnswer> {
+    assertContexts(input);
 
-    const prompt = buildAnswerPrompt(input);
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${this.modelName}:generateContent?key=${this.options.apiKey}`,
       {
         body: JSON.stringify({
           contents: [
             {
-              parts: [{ text: prompt }],
+              parts: [{ text: buildAnswerPrompt(input) }],
               role: "user"
             }
           ],
           generationConfig: {
-            responseMimeType: "application/json",
             temperature: 0.1
           }
         }),
@@ -72,38 +120,36 @@ export class GeminiProvider implements AIProvider {
       }
     );
     const data = await readJsonResponse<GeminiResponse>(response);
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const rawAnswer = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!rawText) {
+    if (!rawAnswer) {
       throw new Error("Gemini response did not include answer text");
     }
 
-    return guardAIAnswer(parseAIAnswer(rawText), input.contexts);
+    return guardAnswer(rawAnswer, input);
   }
 }
 
 export class GroqProvider implements AIProvider {
   readonly providerName = "groq";
-  private readonly modelName: string;
+  readonly modelName: string;
 
   constructor(private readonly options: GroqProviderOptions) {
     this.modelName = options.modelName ?? "llama-3.1-8b-instant";
   }
 
-  async generateAnswer(input: AIGenerateAnswerInput): Promise<AIAnswer> {
-    assertRetrievedContexts(input.contexts);
+  async generateAnswer(input: AIProviderInput): Promise<AIProviderAnswer> {
+    assertContexts(input);
 
-    const prompt = buildAnswerPrompt(input);
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       body: JSON.stringify({
         messages: [
           {
-            content: prompt,
+            content: buildAnswerPrompt(input),
             role: "user"
           }
         ],
         model: this.modelName,
-        response_format: { type: "json_object" },
         temperature: 0.1
       }),
       headers: {
@@ -113,12 +159,12 @@ export class GroqProvider implements AIProvider {
       method: "POST"
     });
     const data = await readJsonResponse<GroqResponse>(response);
-    const rawText = data.choices?.[0]?.message?.content;
+    const rawAnswer = data.choices?.[0]?.message?.content;
 
-    if (!rawText) {
+    if (!rawAnswer) {
       throw new Error("Groq response did not include answer text");
     }
 
-    return guardAIAnswer(parseAIAnswer(rawText), input.contexts);
+    return guardAnswer(rawAnswer, input);
   }
 }

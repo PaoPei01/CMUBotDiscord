@@ -34,13 +34,14 @@ function provider(): TestAIProvider {
   const generateAnswer = vi.fn<AIProvider["generateAnswer"]>(() =>
     Promise.resolve({
       answer: "Rewritten verified answer",
-      citedSourceNames: ["Verified Source"],
-      notFound: false
+      sources: [{ name: "Verified Source", url: "https://example.edu" }],
+      usedContext: true
     })
   );
 
   return {
     generateAnswer,
+    modelName: "test-model",
     providerName: "test"
   };
 }
@@ -84,11 +85,10 @@ describe("composeAskAnswer", () => {
     expect(aiProvider.generateAnswer).toHaveBeenCalledWith({
       contexts: [
         {
-          answer: "Verified answer",
-          faqId: "faq-1",
-          question: "Verified question",
+          content: "Verified answer",
           sourceName: "Verified Source",
-          sourceUrl: "https://example.edu"
+          sourceUrl: "https://example.edu",
+          title: "Verified question"
         }
       ],
       question: "student question"

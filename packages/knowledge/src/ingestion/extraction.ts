@@ -241,12 +241,12 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
     this.modelName = options.modelName ?? "llama-3.1-8b-instant";
   }
 
-  async extractFAQs({ chunk }: { chunk: string }): Promise<ExtractedFAQ[]> {
+  private async requestExtraction(chunk: string, useJsonMode: boolean): Promise<GroqResponse> {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       body: JSON.stringify({
         messages: [{ content: buildPrompt(chunk), role: "user" }],
         model: this.modelName,
-        response_format: { type: "json_object" },
+        ...(useJsonMode ? { response_format: { type: "json_object" } } : {}),
         temperature: 0.1
       }),
       headers: {
@@ -255,7 +255,26 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
       },
       method: "POST"
     });
-    const data = await readJsonResponse<GroqResponse>(response);
+
+    return readJsonResponse<GroqResponse>(response);
+  }
+
+  async extractFAQs({ chunk }: { chunk: string }): Promise<ExtractedFAQ[]> {
+    let data: GroqResponse;
+
+    try {
+      data = await this.requestExtraction(chunk, true);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Failed to generate JSON")
+      ) {
+        data = await this.requestExtraction(chunk, false);
+      } else {
+        throw error;
+      }
+    }
+
     const rawText = data.choices?.[0]?.message?.content;
 
     if (!rawText) {

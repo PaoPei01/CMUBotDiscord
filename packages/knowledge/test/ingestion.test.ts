@@ -6,6 +6,7 @@ import {
   createDraftCandidates,
   GeminiFAQExtractionProvider,
   generateDraftFAQsFromParsedInput,
+  GroqFAQExtractionProvider,
   normalizeParsedText,
   parseExtractedFAQs,
   stripHtml,
@@ -16,6 +17,16 @@ import type { FAQExtractionProvider } from "../src/index.js";
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+function requestBodyAt(fetchMock: ReturnType<typeof vi.fn>, index: number): Record<string, unknown> {
+  const init = fetchMock.mock.calls[index]?.[1] as RequestInit | undefined;
+
+  if (typeof init?.body !== "string") {
+    throw new Error("Expected fetch body to be a JSON string");
+  }
+
+  return JSON.parse(init.body) as Record<string, unknown>;
+}
 
 describe("knowledge parsers", () => {
   it("validates supported file types and size limits", () => {
@@ -148,6 +159,59 @@ describe("draft creation", () => {
     await expect(provider.extractFAQs({ chunk: "verified content" })).rejects.toThrow(
       "AI extraction request failed with status 400: model is not supported for generateContent"
     );
+  });
+
+  it("retries Groq extraction without JSON mode when JSON mode fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: "Failed to generate JSON. Please adjust your prompt."
+            }
+          }),
+          { status: 400 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content:
+                    '{"faqs":[{"question":"Q","answer":"A","keywords":["k"],"category":"C","confidence":88}]}'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new GroqFAQExtractionProvider({
+      apiKey: "test-api-key",
+      modelName: "llama-test"
+    });
+
+    await expect(provider.extractFAQs({ chunk: "verified content" })).resolves.toEqual([
+      {
+        answer: "A",
+        category: "C",
+        confidence: 88,
+        keywords: ["k"],
+        question: "Q"
+      }
+    ]);
+
+    const firstBody = requestBodyAt(fetchMock, 0);
+    const secondBody = requestBodyAt(fetchMock, 1);
+
+    expect(firstBody.response_format).toEqual({ type: "json_object" });
+    expect(secondBody.response_format).toBeUndefined();
   });
 });
 

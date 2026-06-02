@@ -7,6 +7,7 @@
   "scripts": {
     "build": "corepack pnpm -r build",
     "deploy:commands": "corepack pnpm --filter @campus-qa/bot deploy:commands",
+    "deploy:worker-commands": "tsx scripts/deploy-discord-commands.ts",
     "dev:admin": "corepack pnpm --filter @campus-qa/admin dev",
     "dev:bot": "corepack pnpm --filter @campus-qa/bot dev",
     "dev:worker": "corepack pnpm --filter @campus-qa/worker run dev",

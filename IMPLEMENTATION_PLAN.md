@@ -607,3 +607,37 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
+
+## Worker Setup Documentation
+
+Status: complete.
+
+Goal: Document and finish manual setup paths for the Cloudflare Worker Discord
+Interaction Webhook deployment.
+
+Completed scope:
+
+- Added Cloudflare Worker setup documentation covering Wrangler login, required
+  secrets, deployment, health checks, `/discord` endpoint configuration, and
+  log tailing.
+- Added Discord setup documentation covering Application ID, Public Key, bot
+  token handling, guild ID discovery, Interactions Endpoint URL, app invite
+  scopes, and `/ask` testing.
+- Added `scripts/deploy-discord-commands.ts` for Worker-only guild command
+  registration through the Discord REST API.
+- Added `corepack pnpm deploy:worker-commands` while preserving the existing
+  Discord.js bot command registration script.
+
+Not included:
+
+- No new Worker implementation.
+- No new AI implementation.
+- No Discord Gateway bot changes.
+- No admin dashboard changes.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm test` passed.
+- `corepack pnpm build` passed.

@@ -282,6 +282,49 @@ describe("draft creation", () => {
     expect(repairMessages[1]?.content).toContain("Previous response:");
     expect(repairMessages[1]?.content).toContain("Return JSON only");
   });
+
+  it("returns no extracted FAQs when Groq repair still omits JSON", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: "The document is unclear, so I cannot create FAQs."
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: "No FAQ entries can be extracted."
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new GroqFAQExtractionProvider({
+      apiKey: "test-api-key",
+      modelName: "llama-test"
+    });
+
+    await expect(provider.extractFAQs({ chunk: "unclear content" })).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("duplicate detection", () => {

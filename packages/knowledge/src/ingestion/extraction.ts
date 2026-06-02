@@ -151,6 +151,13 @@ function parseJsonBlock(rawText: string): unknown {
   }
 }
 
+function isMissingJsonError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("FAQ extraction response did not include JSON")
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -355,10 +362,7 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
     try {
       return parseExtractedFAQs(rawText);
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("FAQ extraction response did not include JSON")
-      ) {
+      if (isMissingJsonError(error)) {
         const repairedData = await this.repairExtractionJson(chunk, rawText);
         const repairedText = repairedData.choices?.[0]?.message?.content;
 
@@ -366,7 +370,15 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
           throw new Error("Groq extraction repair response did not include text");
         }
 
-        return parseExtractedFAQs(repairedText);
+        try {
+          return parseExtractedFAQs(repairedText);
+        } catch (repairError) {
+          if (isMissingJsonError(repairError)) {
+            return [];
+          }
+
+          throw repairError;
+        }
       }
 
       throw error;

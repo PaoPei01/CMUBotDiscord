@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   approveDraftForProduction,
   chunkText,
   createDraftCandidates,
+  GeminiFAQExtractionProvider,
   generateDraftFAQsFromParsedInput,
   normalizeParsedText,
   parseExtractedFAQs,
@@ -11,6 +12,10 @@ import {
   validateFileInput
 } from "../src/index.js";
 import type { FAQExtractionProvider } from "../src/index.js";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("knowledge parsers", () => {
   it("validates supported file types and size limits", () => {
@@ -115,6 +120,33 @@ describe("draft creation", () => {
   it("reports invalid FAQ extraction JSON safely", () => {
     expect(() => parseExtractedFAQs("_not json_")).toThrow(
       "FAQ extraction response did not include JSON"
+    );
+  });
+
+  it("includes provider error details when AI extraction requests fail", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                message: "model is not supported for generateContent"
+              }
+            }),
+            { status: 400 }
+          )
+        )
+      )
+    );
+
+    const provider = new GeminiFAQExtractionProvider({
+      apiKey: "test-api-key",
+      modelName: "bad-model"
+    });
+
+    await expect(provider.extractFAQs({ chunk: "verified content" })).rejects.toThrow(
+      "AI extraction request failed with status 400: model is not supported for generateContent"
     );
   });
 });

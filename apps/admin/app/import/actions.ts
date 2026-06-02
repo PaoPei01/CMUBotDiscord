@@ -58,6 +58,8 @@ async function createKnowledgeDrafts(formData: FormData): Promise<number> {
   const provider = createFAQExtractionProviderFromEnv({
     AI_PROVIDER: process.env.AI_PROVIDER,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+    GEMINI_MODEL: process.env.GEMINI_MODEL,
+    GROQ_MODEL: process.env.GROQ_MODEL,
     GROQ_API_KEY: process.env.GROQ_API_KEY
   });
   const chunkSizeWords = numberValue(

@@ -48,7 +48,9 @@ type ProviderOptions = {
 type ExtractionProviderEnv = {
   AI_PROVIDER?: string;
   GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
   GROQ_API_KEY?: string;
+  GROQ_MODEL?: string;
 };
 
 type GeminiResponse = {
@@ -167,9 +169,31 @@ export function parseExtractedFAQs(rawText: string): ExtractedFAQ[] {
     .filter((entry): entry is ExtractedFAQ => entry !== null);
 }
 
+async function errorMessageFromResponse(response: Response): Promise<string> {
+  const fallback = `AI extraction request failed with status ${response.status}`;
+
+  try {
+    const rawText = await response.text();
+
+    if (!rawText.trim()) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(rawText) as unknown;
+
+    if (isRecord(parsed) && isRecord(parsed.error) && typeof parsed.error.message === "string") {
+      return `${fallback}: ${parsed.error.message}`;
+    }
+
+    return `${fallback}: ${rawText.slice(0, 300)}`;
+  } catch {
+    return fallback;
+  }
+}
+
 async function readJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    throw new Error(`AI extraction request failed with status ${response.status}`);
+    throw new Error(await errorMessageFromResponse(response));
   }
 
   return (await response.json()) as T;
@@ -252,7 +276,10 @@ export function createFAQExtractionProviderFromEnv(
       throw new Error("GEMINI_API_KEY is required for FAQ extraction");
     }
 
-    return new GeminiFAQExtractionProvider({ apiKey: env.GEMINI_API_KEY });
+    return new GeminiFAQExtractionProvider({
+      apiKey: env.GEMINI_API_KEY,
+      modelName: env.GEMINI_MODEL
+    });
   }
 
   if (provider === "groq" || (!provider && env.GROQ_API_KEY)) {
@@ -260,7 +287,10 @@ export function createFAQExtractionProviderFromEnv(
       throw new Error("GROQ_API_KEY is required for FAQ extraction");
     }
 
-    return new GroqFAQExtractionProvider({ apiKey: env.GROQ_API_KEY });
+    return new GroqFAQExtractionProvider({
+      apiKey: env.GROQ_API_KEY,
+      modelName: env.GROQ_MODEL
+    });
   }
 
   throw new Error("AI_PROVIDER with GEMINI_API_KEY or GROQ_API_KEY is required for FAQ extraction");

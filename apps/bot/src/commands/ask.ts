@@ -1,4 +1,5 @@
 import { logQuestion } from "@campus-qa/database";
+import type { SearchResult } from "@campus-qa/knowledge";
 import { SlashCommandBuilder } from "discord.js";
 
 import type { BotCommand } from "../services/commandRegistry.js";
@@ -13,6 +14,27 @@ import {
 
 function normalizeQuestion(question: string): string {
   return question.trim().replace(/\s+/g, " ");
+}
+
+function isAllowedSearchResult(result: SearchResult): boolean {
+  return (
+    result.status === "active" &&
+    (result.method === "exact" || result.method === "alias" || result.method === "keyword")
+  );
+}
+
+function toNotFoundResult(result: SearchResult): SearchResult {
+  return {
+    ...result,
+    answer: null,
+    answerFull: null,
+    answerShort: null,
+    confidence: 0,
+    faqId: null,
+    matchedQuestion: null,
+    method: "none",
+    source: null
+  };
 }
 
 export const askCommand: BotCommand = {
@@ -48,9 +70,12 @@ export const askCommand: BotCommand = {
     }
 
     try {
-      const searchResult = await context.knowledge.searchKnowledge(question);
+      const rawSearchResult = await context.knowledge.searchKnowledge(question);
+      const searchResult = isAllowedSearchResult(rawSearchResult)
+        ? rawSearchResult
+        : toNotFoundResult(rawSearchResult);
       const answerComposition = await composeAskAnswer({
-        aiProvider: context.aiProvider,
+        aiProvider: null,
         question,
         searchResult
       });

@@ -15,13 +15,26 @@ const source = {
 };
 
 function searchResult(overrides: Partial<SearchResult> = {}): SearchResult {
+  const answer = "Verified answer";
+
   return {
-    answer: "Verified answer",
+    answer,
+    answerFull: answer,
+    answerShort: answer,
+    audience: "นักศึกษา",
+    category: "ทั่วไป",
     confidence: 80,
+    facultyGroup: null,
     faqId: "faq-1",
     matchedQuestion: "Verified question",
     method: "keyword",
+    priority: "medium",
     source,
+    sourcePage: null,
+    sourceQuote: null,
+    status: "active",
+    validFrom: null,
+    validUntil: null,
     ...overrides
   };
 }

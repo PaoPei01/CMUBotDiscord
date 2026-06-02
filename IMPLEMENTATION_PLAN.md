@@ -480,3 +480,54 @@ Validation results:
 - `corepack pnpm lint` passed.
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm build` passed.
+
+## Discord Ask Metadata Response Update
+
+Status: complete.
+
+Goal: Update Discord `/ask` responses to use enriched FAQ metadata.
+
+Completed scope:
+
+- Expanded knowledge search result metadata carried into Discord responses:
+  - `answer_short`
+  - `answer_full`
+  - `category`
+  - `audience`
+  - `faculty_group`
+  - `source_page`
+  - `source_quote`
+  - `valid_from`
+  - `valid_until`
+  - `priority`
+  - FAQ `status`
+- Updated Discord.js bot embed format:
+  - title `คำตอบจากฐานข้อมูล`
+  - `คำถาม`
+  - `คำตอบ` from `answer_short`
+  - `หมวดหมู่`
+  - `สำหรับ`
+  - optional `คณะ/กลุ่ม`
+  - `แหล่งข้อมูล`
+  - optional `หน้า/หัวข้ออ้างอิง`
+  - `ตรวจสอบล่าสุด`
+  - `สถานะข้อมูล`
+- Updated Cloudflare Worker embed format to use the same metadata response shape.
+- Added validity warning when `valid_until` is in the past.
+- Kept `/ask` search serving active FAQ records only.
+- Limited Discord.js `/ask` answerable methods to exact question, alias, and keyword results for this update.
+- Question logs continue to record user question, matched FAQ id, confidence, method, response time, Discord user id, and guild id.
+
+Not included:
+
+- No new AI implementation.
+- No vector search implementation.
+- No new fuzzy search implementation.
+- No unrelated Discord features.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.

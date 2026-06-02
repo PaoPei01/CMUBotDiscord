@@ -402,8 +402,19 @@ export function createSupabaseDatabaseService(
         data: rows.map((row) => ({
           ...mapFaqWithSource(row),
           aliases: aliasesByFaqId.get(row.id) ?? [],
+          answer: row.answer_short,
+          answerFull: row.answer_full,
+          answerShort: row.answer_short,
+          audience: row.audience,
           faqId: row.id,
-          keywords: keywordsByFaqId.get(row.id) ?? []
+          facultyGroup: row.faculty_group,
+          keywords: keywordsByFaqId.get(row.id) ?? [],
+          priority: row.priority,
+          sourcePage: row.source_page,
+          sourceQuote: row.source_quote,
+          status: row.status,
+          validFrom: row.valid_from,
+          validUntil: row.valid_until
         })),
         error: null
       };

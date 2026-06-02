@@ -61,11 +61,22 @@ export type KnowledgeEngineVectorOptions = {
 
 const noneResult: SearchResult = {
   answer: null,
+  answerFull: null,
+  answerShort: null,
+  audience: null,
+  category: null,
   confidence: 0,
+  facultyGroup: null,
   faqId: null,
   matchedQuestion: null,
   method: "none",
-  source: null
+  priority: null,
+  source: null,
+  sourcePage: null,
+  sourceQuote: null,
+  status: null,
+  validFrom: null,
+  validUntil: null
 };
 
 export function removeRepeatedSpaces(value: string): string {
@@ -91,11 +102,22 @@ function buildResult(
 ): SearchResult {
   return {
     answer: entry.answer,
+    answerFull: entry.answerFull,
+    answerShort: entry.answerShort,
+    audience: entry.audience,
+    category: entry.category,
     confidence,
+    facultyGroup: entry.facultyGroup,
     faqId: entry.faqId,
     matchedQuestion: entry.question,
     method,
-    source: entry.source
+    priority: entry.priority,
+    source: entry.source,
+    sourcePage: entry.sourcePage,
+    sourceQuote: entry.sourceQuote,
+    status: entry.status,
+    validFrom: entry.validFrom,
+    validUntil: entry.validUntil
   };
 }
 

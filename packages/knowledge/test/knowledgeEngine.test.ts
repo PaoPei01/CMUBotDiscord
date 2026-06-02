@@ -23,6 +23,21 @@ const source = {
   url: "https://example.edu"
 };
 
+function metadata(answer: string) {
+  return {
+    answerFull: answer,
+    answerShort: answer,
+    audience: "นักศึกษา",
+    facultyGroup: null,
+    priority: "medium",
+    sourcePage: null,
+    sourceQuote: null,
+    status: "active",
+    validFrom: null,
+    validUntil: null
+  };
+}
+
 const entries: KnowledgeEntry[] = [
   {
     aliases: ["จ่ายค่าเทอมวันไหน"],
@@ -32,7 +47,8 @@ const entries: KnowledgeEntry[] = [
     keywords: ["ค่าเทอม", "ชำระเงิน"],
     question: "ค่าธรรมเนียมการศึกษา ภาคเรียนที่ 1/2569 ต้องจ่ายวันไหน",
     source,
-    updatedAt: "2026-06-02T00:00:00Z"
+    updatedAt: "2026-06-02T00:00:00Z",
+    ...metadata("จ่ายค่าเทอมวันที่ 6-10 กรกฎาคม 2569")
   },
   {
     aliases: ["เปิดอีเมล cmu ตอนไหน"],
@@ -42,7 +58,8 @@ const entries: KnowledgeEntry[] = [
     keywords: ["CMU Account", "อีเมลมหาวิทยาลัย"],
     question: "บัญชี CMU Account สามารถเริ่มเปิดใช้งานได้ตอนไหน",
     source,
-    updatedAt: "2026-06-02T00:00:00Z"
+    updatedAt: "2026-06-02T00:00:00Z",
+    ...metadata("เปิดใช้งาน CMU Account ได้หลังรายงานตัวสมบูรณ์")
   },
   {
     aliases: ["รูปทำบัตรนักศึกษา"],
@@ -52,7 +69,8 @@ const entries: KnowledgeEntry[] = [
     keywords: ["รูปถ่าย", "บัตรนักศึกษา"],
     question: "ข้อกำหนดของไฟล์รูปถ่ายหน้าตรงเพื่อทำบัตรนักศึกษามีอะไรบ้าง",
     source,
-    updatedAt: "2026-06-02T00:00:00Z"
+    updatedAt: "2026-06-02T00:00:00Z",
+    ...metadata("รูปถ่ายต้องเป็นรูปสีสัดส่วน 3:4")
   }
 ];
 

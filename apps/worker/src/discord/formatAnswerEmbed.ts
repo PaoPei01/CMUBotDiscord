@@ -12,8 +12,39 @@ function valueOrDash(value: string | null | undefined): string {
   return value?.trim() ? value : "-";
 }
 
+function formatDate(value: string | null | undefined): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("th-TH", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
 function isExpired(validUntil: string | null): boolean {
   return validUntil ? new Date(validUntil).getTime() < Date.now() : false;
+}
+
+function statusValue(result: KnowledgeSearchResult): string {
+  const validity = [
+    result.validFrom ? `เริ่มใช้: ${formatDate(result.validFrom)}` : null,
+    result.validUntil ? `ใช้ถึง: ${formatDate(result.validUntil)}` : null
+  ].filter(Boolean);
+  return [
+    "สถานะ: active",
+    `ความสำคัญ: ${valueOrDash(result.priority)}`,
+    validity.length > 0 ? validity.join("\n") : "ช่วงเวลา: -",
+    `ความมั่นใจ: ${result.confidence}`
+  ].join("\n");
 }
 
 export function formatAnswerEmbed({
@@ -61,18 +92,24 @@ export function formatAnswerEmbed({
     {
       name: "แหล่งข้อมูล",
       value: truncate(sourceValue)
-    },
-    {
+    }
+  );
+
+  if (result.sourcePage) {
+    fields.push({
       name: "หน้า/หัวข้ออ้างอิง",
-      value: valueOrDash(result.sourcePage)
-    },
+      value: truncate(result.sourcePage)
+    });
+  }
+
+  fields.push(
     {
       name: "ตรวจสอบล่าสุด",
-      value: valueOrDash(result.lastVerifiedAt)
+      value: formatDate(result.lastVerifiedAt)
     },
     {
-      name: "ความมั่นใจ",
-      value: String(result.confidence)
+      name: "สถานะข้อมูล",
+      value: truncate(statusValue(result))
     }
   );
 

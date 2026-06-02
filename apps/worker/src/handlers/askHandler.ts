@@ -1,6 +1,4 @@
-import { AIProviderFactory } from "@campus-qa/ai";
 import { AI_NOT_FOUND_MESSAGE } from "@campus-qa/ai";
-import type { AIProvider } from "@campus-qa/ai";
 
 import type { WorkerEnv } from "../env.js";
 import { editOriginalInteractionResponse } from "../discord/respond.js";
@@ -38,19 +36,8 @@ export async function handleAskInteraction(
 
   try {
     const result = await searchKnowledge(supabase, question);
-    let aiProvider: AIProvider | null = null;
-
-    try {
-      aiProvider = AIProviderFactory.fromEnv({
-        AI_PROVIDER: env.AI_PROVIDER,
-        GEMINI_API_KEY: env.GEMINI_API_KEY,
-        GEMINI_MODEL: env.GEMINI_MODEL
-      });
-    } catch {
-      aiProvider = null;
-    }
     const composition = await composeWorkerAnswer({
-      aiProvider,
+      aiProvider: null,
       question,
       result
     });
@@ -90,7 +77,7 @@ export async function handleAskInteraction(
       payload: {
         embeds: [
           formatAnswerEmbed({
-            answer: composition.answer,
+            answer: result.answerShort ?? composition.answer,
             question,
             result,
             sourceNames: composition.sources.map((source) => source.name)

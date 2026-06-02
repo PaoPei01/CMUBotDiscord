@@ -10,6 +10,8 @@ export const NOT_FOUND_MESSAGE =
   "ยังไม่พบข้อมูลที่ยืนยันได้จากฐานข้อมูลของระบบ";
 export const LOW_CONFIDENCE_MESSAGE =
   "พบข้อมูลที่ใกล้เคียงที่สุด อาจต้องตรวจสอบเพิ่มเติม";
+const EXPIRED_WARNING =
+  "ข้อมูลนี้อาจพ้นช่วงเวลาที่กำหนดแล้ว กรุณาตรวจสอบประกาศล่าสุดจากแหล่งข้อมูลโดยตรง";
 
 type ButtonRow = ActionRowBuilder<ButtonBuilder>;
 
@@ -19,6 +21,32 @@ function truncate(value: string, maxLength = 1024): string {
   }
 
   return `${value.slice(0, maxLength - 1)}…`;
+}
+
+function valueOrDash(value: string | null | undefined): string {
+  return value?.trim() ? value : "-";
+}
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("th-TH", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
+function isExpired(validUntil: string | null): boolean {
+  return validUntil ? new Date(validUntil).getTime() < Date.now() : false;
 }
 
 function createFeedbackComponents(questionLogId: string): ButtonRow[] {
@@ -36,16 +64,17 @@ function createFeedbackComponents(questionLogId: string): ButtonRow[] {
   ];
 }
 
-function confidenceLabel(confidence: number): string {
-  if (confidence >= 75) {
-    return "สูง";
-  }
-
-  if (confidence >= 60) {
-    return "ใกล้เคียง";
-  }
-
-  return "ต่ำ";
+function statusValue(result: SearchResult): string {
+  const validity = [
+    result.validFrom ? `เริ่มใช้: ${formatDate(result.validFrom)}` : null,
+    result.validUntil ? `ใช้ถึง: ${formatDate(result.validUntil)}` : null
+  ].filter(Boolean);
+  return [
+    `สถานะ: ${valueOrDash(result.status)}`,
+    `ความสำคัญ: ${valueOrDash(result.priority)}`,
+    validity.length > 0 ? validity.join("\n") : "ช่วงเวลา: -",
+    `ความมั่นใจ: ${result.confidence}`
+  ].join("\n");
 }
 
 export function createAnswerComponents(questionLogId: string): ButtonRow[] {
@@ -65,8 +94,8 @@ export function createAnswerEmbed({
 }): EmbedBuilder {
   const sourceName = result.source?.name ?? "ไม่ระบุแหล่งที่มา";
   const sourceUrl = result.source?.url;
-  const verifiedAt = result.source?.lastVerifiedAt ?? "ไม่ระบุ";
   const sourceValue = sourceUrl ? `[${sourceName}](${sourceUrl})` : sourceName;
+  const answer = result.answerShort ?? result.answer ?? NOT_FOUND_MESSAGE;
   const fields = [];
 
   if (result.confidence >= 60 && result.confidence < 75) {
@@ -83,21 +112,56 @@ export function createAnswerEmbed({
     },
     {
       name: "คำตอบ",
-      value: truncate(result.answer ?? NOT_FOUND_MESSAGE)
+      value: truncate(answer)
     },
     {
-      name: "แหล่งที่มา",
-      value: truncate(sourceValue)
+      name: "หมวดหมู่",
+      value: valueOrDash(result.category)
     },
     {
-      name: "อัปเดต/ยืนยันล่าสุด",
-      value: verifiedAt
-    },
-    {
-      name: "ความมั่นใจ",
-      value: confidenceLabel(result.confidence)
+      name: "สำหรับ",
+      value: valueOrDash(result.audience)
     }
   );
+
+  if (result.facultyGroup) {
+    fields.push({
+      name: "คณะ/กลุ่ม",
+      value: truncate(result.facultyGroup)
+    });
+  }
+
+  fields.push(
+    {
+      name: "แหล่งข้อมูล",
+      value: truncate(sourceValue)
+    }
+  );
+
+  if (result.sourcePage) {
+    fields.push({
+      name: "หน้า/หัวข้ออ้างอิง",
+      value: truncate(result.sourcePage)
+    });
+  }
+
+  fields.push(
+    {
+      name: "ตรวจสอบล่าสุด",
+      value: formatDate(result.source?.lastVerifiedAt)
+    },
+    {
+      name: "สถานะข้อมูล",
+      value: truncate(statusValue(result))
+    }
+  );
+
+  if (isExpired(result.validUntil)) {
+    fields.push({
+      name: "คำเตือน",
+      value: EXPIRED_WARNING
+    });
+  }
 
   return new EmbedBuilder()
     .setTitle("คำตอบจากฐานข้อมูล")

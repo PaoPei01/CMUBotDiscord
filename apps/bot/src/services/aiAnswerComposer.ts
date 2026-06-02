@@ -11,13 +11,15 @@ export type AnswerCompositionResult = {
 };
 
 function buildRetrievedContexts(result: SearchResult): AIContext[] {
-  if (!result.answer || !result.faqId || !result.matchedQuestion || !result.source?.name) {
+  const content = result.sourceQuote ?? result.answerFull ?? result.answerShort ?? result.answer;
+
+  if (!content || !result.faqId || !result.matchedQuestion || !result.source?.name) {
     return [];
   }
 
   return [
     {
-      content: result.answer,
+      content,
       sourceName: result.source.name,
       sourceUrl: result.source.url ?? undefined,
       title: result.matchedQuestion

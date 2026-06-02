@@ -9,7 +9,21 @@ export const FAQ_EXTRACTION_PROMPT = [
   "",
   "Generate possible FAQ entries only from explicit information in the text.",
   "",
-  "Output only valid JSON:",
+  "Output only valid JSON. Prefer this object shape:",
+  "",
+  "{",
+  '  "faqs": [',
+  "    {",
+  '      "question": "",',
+  '      "answer": "",',
+  '      "keywords": [],',
+  '      "category": "",',
+  '      "confidence": 0',
+  "    }",
+  "  ]",
+  "}",
+  "",
+  "The legacy raw array shape is also accepted:",
   "",
   "[",
   "  {",
@@ -57,12 +71,53 @@ function buildPrompt(chunk: string): string {
   return `${FAQ_EXTRACTION_PROMPT}\n\nContent:\n${chunk}`;
 }
 
-function parseJsonBlock(rawText: string): unknown {
+function stripMarkdownFence(rawText: string): string {
   const trimmed = rawText.trim();
-  const jsonText = trimmed.startsWith("```")
-    ? trimmed.replace(/^```(?:json)?/iu, "").replace(/```$/u, "").trim()
-    : trimmed;
-  return JSON.parse(jsonText);
+
+  if (!trimmed.startsWith("```")) {
+    return trimmed;
+  }
+
+  return trimmed.replace(/^```(?:json)?/iu, "").replace(/```$/u, "").trim();
+}
+
+function extractJsonCandidate(rawText: string): string {
+  const text = stripMarkdownFence(rawText);
+
+  if (text.startsWith("[") || text.startsWith("{")) {
+    return text;
+  }
+
+  const arrayStart = text.indexOf("[");
+  const objectStart = text.indexOf("{");
+  const starts = [arrayStart, objectStart].filter((index) => index >= 0);
+
+  if (starts.length === 0) {
+    throw new Error("FAQ extraction response did not include JSON");
+  }
+
+  const start = Math.min(...starts);
+  const open = text[start];
+  const close = open === "[" ? "]" : "}";
+  const end = text.lastIndexOf(close);
+
+  if (end < start) {
+    throw new Error("FAQ extraction response JSON was incomplete");
+  }
+
+  return text.slice(start, end + 1).trim();
+}
+
+function parseJsonBlock(rawText: string): unknown {
+  try {
+    return JSON.parse(extractJsonCandidate(rawText));
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("FAQ extraction response was not valid JSON");
+    }
+
+    throw error;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -71,12 +126,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function parseExtractedFAQs(rawText: string): ExtractedFAQ[] {
   const parsed = parseJsonBlock(rawText);
+  const entries = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed) && Array.isArray(parsed.faqs)
+      ? parsed.faqs
+      : null;
 
-  if (!Array.isArray(parsed)) {
-    throw new Error("FAQ extraction response must be a JSON array");
+  if (!entries) {
+    throw new Error("FAQ extraction response must include a JSON FAQ array");
   }
 
-  return parsed
+  return entries
     .map((entry): ExtractedFAQ | null => {
       if (!isRecord(entry)) {
         return null;
@@ -162,6 +222,7 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
       body: JSON.stringify({
         messages: [{ content: buildPrompt(chunk), role: "user" }],
         model: this.modelName,
+        response_format: { type: "json_object" },
         temperature: 0.1
       }),
       headers: {

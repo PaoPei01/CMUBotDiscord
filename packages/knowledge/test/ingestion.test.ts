@@ -98,6 +98,25 @@ describe("draft creation", () => {
       question: "Q"
     });
   });
+
+  it("parses FAQ extraction JSON objects", () => {
+    const faqs = parseExtractedFAQs(
+      '{"faqs":[{"question":"Q","answer":"A","keywords":[],"category":"C","confidence":82}]}'
+    );
+
+    expect(faqs[0]).toMatchObject({
+      answer: "A",
+      category: "C",
+      confidence: 82,
+      question: "Q"
+    });
+  });
+
+  it("reports invalid FAQ extraction JSON safely", () => {
+    expect(() => parseExtractedFAQs("_not json_")).toThrow(
+      "FAQ extraction response did not include JSON"
+    );
+  });
 });
 
 describe("duplicate detection", () => {

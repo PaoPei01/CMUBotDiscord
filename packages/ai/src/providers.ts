@@ -93,7 +93,7 @@ export class GeminiProvider implements AIProvider {
   readonly modelName: string;
 
   constructor(private readonly options: GeminiProviderOptions) {
-    this.modelName = options.modelName ?? "gemini-1.5-flash";
+    this.modelName = options.modelName ?? "gemini-2.5-flash";
   }
 
   async generateAnswer(input: AIProviderInput): Promise<AIProviderAnswer> {

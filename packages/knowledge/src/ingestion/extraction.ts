@@ -204,7 +204,7 @@ export class GeminiFAQExtractionProvider implements FAQExtractionProvider {
   private readonly modelName: string;
 
   constructor(private readonly options: ProviderOptions) {
-    this.modelName = options.modelName ?? "gemini-1.5-flash";
+    this.modelName = options.modelName ?? "gemini-2.5-flash";
   }
 
   async extractFAQs({ chunk }: { chunk: string }): Promise<ExtractedFAQ[]> {

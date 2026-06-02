@@ -641,3 +641,39 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm test` passed.
 - `corepack pnpm build` passed.
+
+## Worker Feedback Buttons
+
+Status: complete.
+
+Goal: Add answer-quality feedback buttons to the Cloudflare Worker Discord
+Interaction Webhook flow.
+
+Completed scope:
+
+- Added Worker Discord component payload types for action rows and buttons.
+- Added feedback buttons to Worker `/ask` final responses when question logging
+  returns a question log id.
+- Added feedback buttons for both answered and not-found responses when logging
+  succeeds.
+- Added message component interaction handling for `feedback:<questionLogId>:up`
+  and `feedback:<questionLogId>:down`.
+- Added Supabase feedback insert support for `question_log_id`, `vote`, and
+  optional Discord user id.
+- Feedback save failures return a generic ephemeral error without exposing
+  internal details.
+- Added Worker tests for feedback custom id parsing, invalid custom ids,
+  component payloads, feedback insert payload shape, and ephemeral responses.
+
+Not included:
+
+- No Discord Gateway bot changes.
+- No normal message reading.
+- No unrelated Discord features.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm test` passed.
+- `corepack pnpm build` passed.

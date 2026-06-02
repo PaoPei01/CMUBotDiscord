@@ -19,6 +19,16 @@ export function deferredDiscordResponse(): Response {
   });
 }
 
+export function ephemeralDiscordResponse(content: string): Response {
+  return jsonResponse({
+    data: {
+      content,
+      flags: 64
+    },
+    type: 4
+  });
+}
+
 export async function editOriginalInteractionResponse({
   applicationId,
   payload,

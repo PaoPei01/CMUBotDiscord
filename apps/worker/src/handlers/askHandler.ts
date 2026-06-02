@@ -3,6 +3,7 @@ import { AI_NOT_FOUND_MESSAGE } from "@campus-qa/ai";
 import type { AIProvider } from "@campus-qa/ai";
 
 import type { WorkerEnv } from "../env.js";
+import { createFeedbackComponents } from "../discord/feedbackComponents.js";
 import { editOriginalInteractionResponse } from "../discord/respond.js";
 import type { DiscordInteraction } from "../discord/types.js";
 import { formatAnswerEmbed } from "../discord/formatAnswerEmbed.js";
@@ -13,6 +14,14 @@ import { createSupabaseClient } from "../services/supabaseClient.js";
 function optionValue(interaction: DiscordInteraction, name: string): string | null {
   const option = interaction.data?.options?.find((candidate) => candidate.name === name);
   return typeof option?.value === "string" ? option.value.trim() : null;
+}
+
+function discordUserId(interaction: DiscordInteraction): string | null {
+  return interaction.member?.user?.id ?? interaction.user?.id ?? null;
+}
+
+function feedbackComponents(questionLogId: string | null) {
+  return questionLogId ? createFeedbackComponents(questionLogId) : undefined;
 }
 
 function safeLog(payload: Record<string, unknown>): void {
@@ -57,10 +66,10 @@ export async function handleAskInteraction(
     });
     const responseTimeMs = Date.now() - startedAt;
 
-    await logQuestion(supabase, {
+    const questionLogId = await logQuestion(supabase, {
       confidence: result.confidence,
-      discordGuildId: null,
-      discordUserId: null,
+      discordGuildId: interaction.guild_id ?? null,
+      discordUserId: discordUserId(interaction),
       matchedFaqId: result.faqId,
       method: result.method,
       responseTimeMs,
@@ -80,7 +89,10 @@ export async function handleAskInteraction(
     if (!composition.shouldAnswer || !composition.answer) {
       await editOriginalInteractionResponse({
         applicationId: interaction.application_id,
-        payload: { content: AI_NOT_FOUND_MESSAGE },
+        payload: {
+          components: feedbackComponents(questionLogId),
+          content: AI_NOT_FOUND_MESSAGE
+        },
         token: interaction.token
       });
       return;
@@ -89,6 +101,7 @@ export async function handleAskInteraction(
     await editOriginalInteractionResponse({
       applicationId: interaction.application_id,
       payload: {
+        components: feedbackComponents(questionLogId),
         embeds: [
           formatAnswerEmbed({
             answer: composition.answer,

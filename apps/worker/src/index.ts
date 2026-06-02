@@ -3,6 +3,7 @@ import { verifyDiscordRequest } from "./discord/verifyDiscordRequest.js";
 import { deferredDiscordResponse, jsonResponse } from "./discord/respond.js";
 import type { DiscordInteraction } from "./discord/types.js";
 import { handleAskInteraction } from "./handlers/askHandler.js";
+import { handleFeedbackInteraction } from "./handlers/feedbackHandler.js";
 
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
@@ -37,6 +38,10 @@ export default {
     if (interaction.type === 2 && interaction.data?.name === "ask") {
       ctx.waitUntil(handleAskInteraction(interaction, env));
       return deferredDiscordResponse();
+    }
+
+    if (interaction.type === 3) {
+      return handleFeedbackInteraction(interaction, env);
     }
 
     return jsonResponse({

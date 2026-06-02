@@ -35,6 +35,10 @@ type KeywordRow = {
   keyword: string;
 };
 
+type QuestionLogInsertRow = {
+  id: string;
+};
+
 export type KnowledgeSearchMethod = "exact" | "alias" | "keyword" | "none";
 
 export type KnowledgeSearchResult = {
@@ -181,9 +185,9 @@ export async function logQuestion(
     responseTimeMs: number;
     userQuestion: string;
   }
-): Promise<void> {
+): Promise<string | null> {
   try {
-    await client.request("question_logs", {
+    const [row] = await client.request<QuestionLogInsertRow[]>("question_logs?select=id", {
       body: JSON.stringify({
         confidence: input.confidence,
         discord_guild_id: input.discordGuildId,
@@ -193,9 +197,33 @@ export async function logQuestion(
         response_time_ms: input.responseTimeMs,
         user_question: input.userQuestion
       }),
+      headers: {
+        Prefer: "return=representation"
+      },
       method: "POST"
     });
+
+    return row?.id ?? null;
   } catch {
     // Question logging must not block the Discord response.
+    return null;
   }
+}
+
+export async function saveFeedback(
+  client: SupabaseFetchClient,
+  input: {
+    discordUserId: string | null;
+    questionLogId: string;
+    vote: "up" | "down";
+  }
+): Promise<void> {
+  await client.request("feedback", {
+    body: JSON.stringify({
+      discord_user_id: input.discordUserId,
+      question_log_id: input.questionLogId,
+      vote: input.vote
+    }),
+    method: "POST"
+  });
 }

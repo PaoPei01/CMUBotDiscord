@@ -223,6 +223,65 @@ describe("draft creation", () => {
     expect(secondMessages[0]?.role).toBe("system");
     expect(secondMessages[0]?.content).toContain("Return only valid JSON");
   });
+
+  it("repairs Groq prose responses into JSON when extraction omitted JSON", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: "The document says students must submit photos by Friday."
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content:
+                    '{"faqs":[{"question":"When are photos due?","answer":"Students must submit photos by Friday.","keywords":["photos"],"category":"Admissions","confidence":87}]}'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new GroqFAQExtractionProvider({
+      apiKey: "test-api-key",
+      modelName: "llama-test"
+    });
+
+    await expect(provider.extractFAQs({ chunk: "Students must submit photos by Friday." })).resolves.toEqual([
+      {
+        answer: "Students must submit photos by Friday.",
+        category: "Admissions",
+        confidence: 87,
+        keywords: ["photos"],
+        question: "When are photos due?"
+      }
+    ]);
+
+    const repairBody = requestBodyAt(fetchMock, 1);
+    const repairMessages = repairBody.messages as Array<{ content: string; role: string }>;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(repairMessages[0]?.role).toBe("system");
+    expect(repairMessages[1]?.content).toContain("Previous response:");
+    expect(repairMessages[1]?.content).toContain("Return JSON only");
+  });
 });
 
 describe("duplicate detection", () => {

@@ -78,6 +78,30 @@ function buildPrompt(chunk: string): string {
   return `${FAQ_EXTRACTION_PROMPT}\n\nContent:\n${chunk}`;
 }
 
+function buildRepairPrompt({
+  chunk,
+  previousResponse
+}: {
+  chunk: string;
+  previousResponse: string;
+}): string {
+  return [
+    "Convert the previous response into valid FAQ extraction JSON.",
+    "",
+    "Return JSON only. Do not include markdown, explanations, comments, or prose.",
+    "Use exactly this shape:",
+    '{"faqs":[{"question":"","answer":"","keywords":[],"category":"","confidence":0}]}',
+    "",
+    'If the previous response does not contain explicit FAQ facts from the source content, return exactly {"faqs":[]}.',
+    "",
+    "Source content:",
+    chunk,
+    "",
+    "Previous response:",
+    previousResponse
+  ].join("\n");
+}
+
 function stripMarkdownFence(rawText: string): string {
   const trimmed = rawText.trim();
 
@@ -276,6 +300,36 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
     return readJsonResponse<GroqResponse>(response);
   }
 
+  private async repairExtractionJson(
+    chunk: string,
+    previousResponse: string
+  ): Promise<GroqResponse> {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      body: JSON.stringify({
+        messages: [
+          {
+            content:
+              'You convert text into strict JSON only. If unsure, return {"faqs":[]}.',
+            role: "system"
+          },
+          {
+            content: buildRepairPrompt({ chunk, previousResponse }),
+            role: "user"
+          }
+        ],
+        model: this.modelName,
+        temperature: 0
+      }),
+      headers: {
+        Authorization: `Bearer ${this.options.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      method: "POST"
+    });
+
+    return readJsonResponse<GroqResponse>(response);
+  }
+
   async extractFAQs({ chunk }: { chunk: string }): Promise<ExtractedFAQ[]> {
     let data: GroqResponse;
 
@@ -298,7 +352,25 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
       throw new Error("Groq extraction response did not include text");
     }
 
-    return parseExtractedFAQs(rawText);
+    try {
+      return parseExtractedFAQs(rawText);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("FAQ extraction response did not include JSON")
+      ) {
+        const repairedData = await this.repairExtractionJson(chunk, rawText);
+        const repairedText = repairedData.choices?.[0]?.message?.content;
+
+        if (!repairedText) {
+          throw new Error("Groq extraction repair response did not include text");
+        }
+
+        return parseExtractedFAQs(repairedText);
+      }
+
+      throw error;
+    }
   }
 }
 

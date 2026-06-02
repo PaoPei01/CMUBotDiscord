@@ -74,6 +74,10 @@ type GroqResponse = {
   }>;
 };
 
+const GROQ_MAX_COMPLETION_TOKENS = 800;
+const GROQ_MAX_RATE_LIMIT_WAIT_MS = 30_000;
+const GROQ_RATE_LIMIT_RETRY_BUFFER_MS = 1_000;
+
 function buildPrompt(chunk: string): string {
   return `${FAQ_EXTRACTION_PROMPT}\n\nContent:\n${chunk}`;
 }
@@ -235,6 +239,50 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+function rateLimitWaitMs(message: string): number | null {
+  const match = /try again in\s+(\d+(?:\.\d+)?)s/iu.exec(message);
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  const seconds = Number(match[1]);
+
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return null;
+  }
+
+  return Math.min(
+    Math.ceil(seconds * 1000) + GROQ_RATE_LIMIT_RETRY_BUFFER_MS,
+    GROQ_MAX_RATE_LIMIT_WAIT_MS
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function readGroqJsonResponse<T>(
+  response: Response,
+  retry: (() => Promise<T>) | null
+): Promise<T> {
+  if (!response.ok) {
+    const message = await errorMessageFromResponse(response);
+    const waitMs = response.status === 429 ? rateLimitWaitMs(message) : null;
+
+    if (retry && waitMs !== null) {
+      await sleep(waitMs);
+      return retry();
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
 export class GeminiFAQExtractionProvider implements FAQExtractionProvider {
   providerName = "gemini";
   private readonly modelName: string;
@@ -277,7 +325,11 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
     this.modelName = options.modelName ?? "llama-3.1-8b-instant";
   }
 
-  private async requestExtraction(chunk: string, useJsonMode: boolean): Promise<GroqResponse> {
+  private async requestExtraction(
+    chunk: string,
+    useJsonMode: boolean,
+    allowRateLimitRetry = true
+  ): Promise<GroqResponse> {
     const messages = [
       ...(useJsonMode
         ? []
@@ -293,6 +345,7 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       body: JSON.stringify({
         messages,
+        max_completion_tokens: GROQ_MAX_COMPLETION_TOKENS,
         model: this.modelName,
         ...(useJsonMode ? { response_format: { type: "json_object" } } : {}),
         temperature: 0.1
@@ -304,12 +357,18 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
       method: "POST"
     });
 
-    return readJsonResponse<GroqResponse>(response);
+    return readGroqJsonResponse<GroqResponse>(
+      response,
+      allowRateLimitRetry
+        ? () => this.requestExtraction(chunk, useJsonMode, false)
+        : null
+    );
   }
 
   private async repairExtractionJson(
     chunk: string,
-    previousResponse: string
+    previousResponse: string,
+    allowRateLimitRetry = true
   ): Promise<GroqResponse> {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       body: JSON.stringify({
@@ -324,6 +383,7 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
             role: "user"
           }
         ],
+        max_completion_tokens: GROQ_MAX_COMPLETION_TOKENS,
         model: this.modelName,
         temperature: 0
       }),
@@ -334,7 +394,12 @@ export class GroqFAQExtractionProvider implements FAQExtractionProvider {
       method: "POST"
     });
 
-    return readJsonResponse<GroqResponse>(response);
+    return readGroqJsonResponse<GroqResponse>(
+      response,
+      allowRateLimitRetry
+        ? () => this.repairExtractionJson(chunk, previousResponse, false)
+        : null
+    );
   }
 
   async extractFAQs({ chunk }: { chunk: string }): Promise<ExtractedFAQ[]> {

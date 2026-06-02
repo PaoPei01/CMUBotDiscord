@@ -17,6 +17,7 @@ import type { FAQExtractionProvider } from "../src/index.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 function requestBodyAt(fetchMock: ReturnType<typeof vi.fn>, index: number): Record<string, unknown> {
@@ -324,6 +325,56 @@ describe("draft creation", () => {
 
     await expect(provider.extractFAQs({ chunk: "unclear content" })).resolves.toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries Groq extraction once after rate limits with retry timing", async () => {
+    vi.useFakeTimers();
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              message:
+                "Rate limit reached on tokens per minute. Please try again in 0.01s."
+            }
+          }),
+          { status: 429 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content:
+                    '{"faqs":[{"question":"Q","answer":"A","keywords":["k"],"category":"C","confidence":88}]}'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new GroqFAQExtractionProvider({
+      apiKey: "test-api-key",
+      modelName: "llama-test"
+    });
+    const result = provider.extractFAQs({ chunk: "verified content" });
+
+    await vi.runAllTimersAsync();
+
+    await expect(result).resolves.toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const firstBody = requestBodyAt(fetchMock, 0);
+
+    expect(firstBody.max_completion_tokens).toBe(800);
   });
 });
 

@@ -756,3 +756,61 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm test` passed.
 - `corepack pnpm build` passed.
+
+## Natural Q&A Layer MVP
+
+Status: complete.
+
+Goal: Let students ask campus questions naturally in allowed Discord channels
+without turning the bot into a general chatbot.
+
+Completed scope:
+
+- Added Discord Gateway `messageCreate` handling in the existing Discord.js bot.
+- Added safe feature flag configuration:
+  - `NATURAL_QA_ENABLED=false` by default
+  - `CAMPUS_QA_CHANNEL_IDS` allowlist required
+  - `NATURAL_QA_REQUIRE_MENTION=true` by default
+  - `NATURAL_QA_PREFIXES`
+  - `NATURAL_QA_MIN_QUESTION_LENGTH`
+- Added trigger guard rules:
+  - ignores bot authors
+  - blocks all channels unless explicitly allowlisted
+  - processes only mention, configured prefix, or channel-trigger when mention
+    is not required
+- Added deterministic question extraction:
+  - removes bot mention
+  - removes configured prefix
+  - normalizes whitespace
+  - rejects short cleaned questions
+- Added deterministic intent detection only:
+  - `campus_question`
+  - `greeting`
+  - `help`
+  - `thanks`
+  - `unknown`
+- Added canned responses for greeting/help/thanks/scope messages.
+- Campus questions use existing verified `KnowledgeEngine` retrieval and direct
+  FAQ answers with source citations.
+- Unknown messages only get a scope reply when the bot was directly mentioned.
+- Added natural Q&A question logging through `question_logs`.
+- Added nullable `question_logs.trigger_type` and `question_logs.intent`
+  migration for review metadata.
+- Added tests for disabled/default guard, empty channel allowlist, mention
+  extraction, prefix extraction, short rejection, canned responses, unknown
+  behavior, campus retrieval, not-found behavior, and bot-message ignore.
+
+Not included:
+
+- No general AI chatbot.
+- No AI calls for greeting/help/thanks/unknown.
+- No unverified factual answers.
+- No channel-wide behavior unless explicitly configured.
+- No moderation, voice, leveling, games, calendar, or announcements.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm test` passed.
+- `corepack pnpm build` passed.

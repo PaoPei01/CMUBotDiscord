@@ -3,10 +3,11 @@ import { createSupabaseDatabaseService, getKnowledgeEntries } from "@campus-qa/d
 import { KnowledgeEngine } from "@campus-qa/knowledge";
 import { createLogger } from "@campus-qa/shared";
 
-import { loadConfig } from "./config.js";
+import { loadConfig, naturalQaConfig } from "./config.js";
 import { createDiscordClient } from "./services/discordClient.js";
 
 const config = loadConfig();
+const naturalQa = naturalQaConfig(config);
 const logger = createLogger({ level: config.LOG_LEVEL, name: "bot" });
 const database = createSupabaseDatabaseService({
   serviceRoleKey: config.SUPABASE_SERVICE_ROLE_KEY,
@@ -23,11 +24,15 @@ const aiProvider = createAIProviderFromEnv({
   GROQ_API_KEY: config.GROQ_API_KEY
 });
 
-const client = createDiscordClient({ aiProvider, database, knowledge, logger });
+const client = createDiscordClient({ aiProvider, database, knowledge, logger }, naturalQa);
 
 try {
   logger.info(
-    { aiProvider: aiProvider?.providerName ?? null, environment: config.NODE_ENV },
+    {
+      aiProvider: aiProvider?.providerName ?? null,
+      environment: config.NODE_ENV,
+      naturalQaEnabled: naturalQa.enabled
+    },
     "Starting Campus Discord Q&A Bot"
   );
   await client.login(config.DISCORD_TOKEN);

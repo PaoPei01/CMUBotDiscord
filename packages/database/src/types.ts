@@ -80,6 +80,8 @@ export type QuestionLog = {
   responseTimeMs: number | null;
   discordUserId: string | null;
   discordGuildId: string | null;
+  triggerType: string | null;
+  intent: string | null;
   createdAt: string;
 };
 
@@ -100,6 +102,8 @@ export type NewQuestionLog = {
   responseTimeMs?: number | null;
   discordUserId?: string | null;
   discordGuildId?: string | null;
+  triggerType?: string | null;
+  intent?: string | null;
 };
 
 export type NewFeedback = {

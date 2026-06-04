@@ -81,6 +81,8 @@ type QuestionLogRow = {
   response_time_ms: number | null;
   discord_user_id: string | null;
   discord_guild_id: string | null;
+  trigger_type: string | null;
+  intent: string | null;
   created_at: string;
 };
 
@@ -268,9 +270,11 @@ function mapQuestionLog(row: QuestionLogRow): QuestionLog {
     discordGuildId: row.discord_guild_id,
     discordUserId: row.discord_user_id,
     id: row.id,
+    intent: row.intent,
     matchedFaqId: row.matched_faq_id,
     method: row.method,
     responseTimeMs: row.response_time_ms,
+    triggerType: row.trigger_type,
     userQuestion: row.user_question
   };
 }
@@ -512,6 +516,8 @@ export function createSupabaseDatabaseService(
           matched_faq_id: input.matchedFaqId ?? null,
           method: input.method ?? null,
           response_time_ms: input.responseTimeMs ?? null,
+          intent: input.intent ?? null,
+          trigger_type: input.triggerType ?? null,
           user_question: input.userQuestion
         })
         .select()

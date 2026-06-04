@@ -58,6 +58,8 @@ type QuestionLogRow = {
   response_time_ms: number | null;
   discord_user_id: string | null;
   discord_guild_id: string | null;
+  trigger_type: string | null;
+  intent: string | null;
   created_at: string;
 };
 

@@ -15,6 +15,11 @@ export const envSchema = z.object({
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_GUILD_ID: z.string().optional(),
   DISCORD_INTERACTIONS_ENDPOINT_URL: z.string().optional(),
+  NATURAL_QA_ENABLED: z.string().optional(),
+  CAMPUS_QA_CHANNEL_IDS: z.string().optional(),
+  NATURAL_QA_REQUIRE_MENTION: z.string().optional(),
+  NATURAL_QA_PREFIXES: z.string().optional(),
+  NATURAL_QA_MIN_QUESTION_LENGTH: z.string().optional(),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
@@ -25,6 +30,7 @@ export const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().optional(),
   GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().optional(),
   KNOWLEDGE_IMPORT_MAX_BYTES: z.string().optional()
 });
 

@@ -70,7 +70,7 @@ export async function composeWorkerAnswer({
     };
   }
 
-  if (result.confidence < 70) {
+  if (result.confidence < 60) {
     return {
       ...base,
       aiUsed: false,
@@ -78,6 +78,19 @@ export async function composeWorkerAnswer({
       failureReason: "confidence_below_ai_threshold",
       shouldAnswer: false,
       sources: []
+    };
+  }
+
+  if (result.confidence < 75) {
+    return {
+      ...base,
+      aiUsed: false,
+      answer: directAnswer,
+      failureReason: "low_confidence_direct_answer",
+      shouldAnswer: true,
+      sources: result.sourceName
+        ? [{ name: result.sourceName, ...(result.sourceUrl ? { url: result.sourceUrl } : {}) }]
+        : []
     };
   }
 

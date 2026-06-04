@@ -13,6 +13,7 @@ function searchResult(overrides: Partial<KnowledgeSearchResult> = {}): Knowledge
     facultyGroup: null,
     faqId: "faq-1",
     lastVerifiedAt: "2026-06-02T00:00:00Z",
+    matchedReason: "test match",
     method: "keyword",
     priority: "medium",
     question: "รูปทำบัตรนักศึกษาต้องเป็นแบบไหน",
@@ -41,5 +42,17 @@ describe("formatAnswerEmbed", () => {
     expect(JSON.stringify(embed)).not.toContain("ความมั่นใจ");
     expect(JSON.stringify(embed)).not.toContain("สถานะข้อมูล");
     expect(JSON.stringify(embed)).not.toContain("medium");
+  });
+
+  it("shows a low-confidence note for closest matches", () => {
+    const embed = formatAnswerEmbed({
+      answer: "น่าจะใช้รูปถ่ายหน้าตรง",
+      result: searchResult({ confidence: 65, method: "fuzzy" }),
+      sourceNames: ["ประกาศมหาวิทยาลัย.pdf"]
+    });
+
+    expect(embed.description).toContain(
+      "พบข้อมูลที่ใกล้เคียงที่สุด อาจต้องตรวจสอบเพิ่มเติม"
+    );
   });
 });

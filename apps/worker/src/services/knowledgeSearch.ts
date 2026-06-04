@@ -35,11 +35,19 @@ type KeywordRow = {
   keyword: string;
 };
 
+type FullTextRow = Omit<FAQRow, "source" | "status"> & {
+  rank: number;
+  source_id: string | null;
+  source_last_verified_at: string | null;
+  source_name: string | null;
+  source_url: string | null;
+};
+
 type QuestionLogInsertRow = {
   id: string;
 };
 
-export type KnowledgeSearchMethod = "exact" | "alias" | "keyword" | "none";
+export type KnowledgeSearchMethod = "exact" | "alias" | "keyword" | "full_text" | "fuzzy" | "none";
 
 export type KnowledgeSearchResult = {
   answerFull: string | null;
@@ -50,6 +58,7 @@ export type KnowledgeSearchResult = {
   facultyGroup: string | null;
   faqId: string | null;
   lastVerifiedAt: string | null;
+  matchedReason: string | null;
   method: KnowledgeSearchMethod;
   priority: string | null;
   question: string | null;
@@ -70,6 +79,7 @@ const noneResult: KnowledgeSearchResult = {
   facultyGroup: null,
   faqId: null,
   lastVerifiedAt: null,
+  matchedReason: null,
   method: "none",
   priority: null,
   question: null,
@@ -84,7 +94,8 @@ const noneResult: KnowledgeSearchResult = {
 function toResult(
   faq: FAQRow,
   method: Exclude<KnowledgeSearchMethod, "none">,
-  confidence: number
+  confidence: number,
+  matchedReason: string
 ): KnowledgeSearchResult {
   return {
     answerFull: faq.answer_full,
@@ -95,6 +106,7 @@ function toResult(
     facultyGroup: faq.faculty_group,
     faqId: faq.id,
     lastVerifiedAt: faq.source?.last_verified_at ?? null,
+    matchedReason,
     method,
     priority: faq.priority,
     question: faq.question,
@@ -105,6 +117,121 @@ function toResult(
     validFrom: faq.valid_from,
     validUntil: faq.valid_until
   };
+}
+
+function fullTextRowToFaq(row: FullTextRow): FAQRow {
+  return {
+    answer_full: row.answer_full,
+    answer_short: row.answer_short,
+    audience: row.audience,
+    category: row.category,
+    faculty_group: row.faculty_group,
+    id: row.id,
+    priority: row.priority,
+    question: row.question,
+    source: row.source_id
+      ? {
+          id: row.source_id,
+          last_verified_at: row.source_last_verified_at,
+          name: row.source_name ?? "ไม่ระบุแหล่งข้อมูล",
+          url: row.source_url
+        }
+      : null,
+    source_page: row.source_page,
+    source_quote: row.source_quote,
+    status: "active",
+    valid_from: row.valid_from,
+    valid_until: row.valid_until
+  };
+}
+
+function isExpired(validUntil: string | null): boolean {
+  return validUntil ? new Date(validUntil).getTime() < Date.now() : false;
+}
+
+function searchableText(faq: FAQRow, aliases: AliasRow[], keywords: KeywordRow[]): string {
+  return normalizeSearchText(
+    [
+      faq.category,
+      faq.question,
+      faq.answer_short,
+      faq.answer_full,
+      faq.source_quote,
+      ...aliases.filter((alias) => alias.faq_id === faq.id).map((alias) => alias.alias),
+      ...keywords.filter((keyword) => keyword.faq_id === faq.id).map((keyword) => keyword.keyword)
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+function uniqueTokens(value: string): string[] {
+  return [...new Set(normalizeSearchText(value).split(" ").filter((token) => token.length >= 2))];
+}
+
+function tokenOverlapConfidence(question: string, text: string): number {
+  const tokens = uniqueTokens(question);
+
+  if (tokens.length === 0) {
+    return 0;
+  }
+
+  const matched = tokens.filter((token) => text.includes(token)).length;
+  const ratio = matched / tokens.length;
+
+  if (ratio < 0.55) {
+    return 0;
+  }
+
+  return Math.min(85, Math.max(70, Math.round(70 + ratio * 15)));
+}
+
+function levenshteinDistance(left: string, right: string): number {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    const current = [leftIndex + 1];
+
+    for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex] === right[rightIndex] ? 0 : 1;
+      current[rightIndex + 1] = Math.min(
+        current[rightIndex]! + 1,
+        previous[rightIndex + 1]! + 1,
+        previous[rightIndex]! + substitutionCost
+      );
+    }
+
+    previous.splice(0, previous.length, ...current);
+  }
+
+  return previous[right.length] ?? 0;
+}
+
+function fuzzyConfidence(question: string, candidates: string[]): { confidence: number; value: string | null } {
+  const normalizedQuestion = normalizeSearchText(question);
+  let best = { confidence: 0, value: null as string | null };
+
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeSearchText(candidate);
+
+    if (!normalizedCandidate) {
+      continue;
+    }
+
+    const maxLength = Math.max(normalizedQuestion.length, normalizedCandidate.length);
+    const distance = levenshteinDistance(normalizedQuestion, normalizedCandidate);
+    const similarity = maxLength === 0 ? 0 : 1 - distance / maxLength;
+    const confidence = Math.round(60 + Math.max(0, similarity - 0.55) * (15 / 0.3));
+
+    if (similarity >= 0.55 && confidence > best.confidence) {
+      best = {
+        confidence: Math.min(75, Math.max(60, confidence)),
+        value: candidate
+      };
+    }
+  }
+
+  return best;
 }
 
 export async function searchKnowledge(
@@ -120,13 +247,13 @@ export async function searchKnowledge(
   const faqs = await client.request<FAQRow[]>(
     "faqs?select=*,source:sources(id,name,url,last_verified_at)&status=eq.active"
   );
-  const activeFaqs = faqs.filter((faq) => faq.status === "active");
+  const activeFaqs = faqs.filter((faq) => faq.status === "active" && !isExpired(faq.valid_until));
   const exactMatch = activeFaqs.find(
     (faq) => normalizeSearchText(faq.question) === normalizedQuestion
   );
 
   if (exactMatch) {
-    return toResult(exactMatch, "exact", 95);
+    return toResult(exactMatch, "exact", 95, "Exact question match");
   }
 
   if (activeFaqs.length === 0) {
@@ -151,7 +278,7 @@ export async function searchKnowledge(
     const faq = activeFaqs.find((candidate) => candidate.id === aliasMatch.faq_id);
 
     if (faq) {
-      return toResult(faq, "alias", 90);
+      return toResult(faq, "alias", 90, `Alias match: ${aliasMatch.alias}`);
     }
   }
 
@@ -168,7 +295,71 @@ export async function searchKnowledge(
     .sort((left, right) => right.score - left.score);
 
   if (keywordScores[0]) {
-    return toResult(keywordScores[0].faq, "keyword", 80);
+    return toResult(keywordScores[0].faq, "keyword", 80, `Keyword matches: ${keywordScores[0].score}`);
+  }
+
+  try {
+    const [fullTextMatch] = await client.request<FullTextRow[]>("rpc/search_active_faqs_full_text", {
+      body: JSON.stringify({
+        match_count: 5,
+        search_query: question
+      }),
+      method: "POST"
+    });
+
+    if (fullTextMatch) {
+      const confidence = Math.min(85, Math.max(70, Math.round(70 + fullTextMatch.rank * 100)));
+      return toResult(
+        fullTextRowToFaq(fullTextMatch),
+        "full_text",
+        confidence,
+        `PostgreSQL full-text rank: ${fullTextMatch.rank.toFixed(4)}`
+      );
+    }
+  } catch {
+    const fullTextScores = activeFaqs
+      .map((faq) => ({
+        confidence: tokenOverlapConfidence(
+          question,
+          searchableText(faq, aliases, keywords)
+        ),
+        faq
+      }))
+      .filter((entry) => entry.confidence > 0)
+      .sort((left, right) => right.confidence - left.confidence);
+
+    if (fullTextScores[0]) {
+      return toResult(
+        fullTextScores[0].faq,
+        "full_text",
+        fullTextScores[0].confidence,
+        "Deterministic token overlap fallback"
+      );
+    }
+  }
+
+  const fuzzyScores = activeFaqs
+    .map((faq) => {
+      const candidates = [
+        faq.question,
+        ...aliases.filter((alias) => alias.faq_id === faq.id).map((alias) => alias.alias),
+        ...keywords.filter((keyword) => keyword.faq_id === faq.id).map((keyword) => keyword.keyword)
+      ];
+      return {
+        faq,
+        ...fuzzyConfidence(question, candidates)
+      };
+    })
+    .filter((entry) => entry.confidence >= 60)
+    .sort((left, right) => right.confidence - left.confidence);
+
+  if (fuzzyScores[0]) {
+    return toResult(
+      fuzzyScores[0].faq,
+      "fuzzy",
+      fuzzyScores[0].confidence,
+      fuzzyScores[0].value ? `Fuzzy match: ${fuzzyScores[0].value}` : "Fuzzy match"
+    );
   }
 
   return noneResult;

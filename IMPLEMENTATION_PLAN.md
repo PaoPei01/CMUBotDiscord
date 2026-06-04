@@ -702,3 +702,57 @@ Validation results:
 - `corepack pnpm typecheck` passed.
 - `corepack pnpm test` passed.
 - `corepack pnpm build` passed.
+
+## Smarter Verified Retrieval Review
+
+Status: complete.
+
+Goal: Make Worker `/ask` smarter using verified deterministic retrieval only,
+and improve admin review of logged retrieval gaps.
+
+Completed scope:
+
+- Added PostgreSQL full-text FAQ search migration with active/non-expired FAQ
+  filtering, GIN indexes, and a safe `search_active_faqs_full_text` RPC.
+- Improved Worker deterministic retrieval order:
+  1. exact question
+  2. alias
+  3. keyword
+  4. PostgreSQL full-text search
+  5. fuzzy search with safe confidence threshold
+- Worker search now excludes expired and inactive FAQs from normal answers.
+- Worker search results include `matchedReason` for review/debug context.
+- Updated confidence behavior:
+  - exact `95`
+  - alias `90`
+  - keyword `80`
+  - full-text `70-85`
+  - fuzzy `60-75`
+  - none `0`
+- Updated Worker answer policy:
+  - confidence `>= 75`: answer normally with source citation
+  - confidence `60-74`: answer with closest-match caution
+  - confidence `< 60`: return the not-found message
+- Preserved AI safety: AI is never called without retrieved verified context,
+  and low-confidence `60-74` matches are answered directly rather than through AI.
+- Improved `/missing` admin page into a review queue for:
+  - unanswered questions
+  - low-confidence matches
+  - negative feedback
+- Added suggested manual actions: add FAQ, add alias, add keyword, or review FAQ.
+- Added Worker tests for exact, alias, keyword, full-text, fuzzy, expired,
+  inactive, no-match, and AI threshold behavior.
+
+Not included:
+
+- No embeddings or vector calls in Worker.
+- No document import changes.
+- No automatic production FAQ changes from logs.
+- No unrelated Discord features.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm test` passed.
+- `corepack pnpm build` passed.

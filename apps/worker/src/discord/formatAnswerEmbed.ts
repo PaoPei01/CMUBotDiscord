@@ -30,7 +30,7 @@ function isExpired(validUntil: string | null): boolean {
   return validUntil ? new Date(validUntil).getTime() < Date.now() : false;
 }
 
-function formatAnswerText(answer: string): string {
+function formatAnswerText(answer: string, result: KnowledgeSearchResult): string {
   const trimmedAnswer = answer.trim();
 
   if (!trimmedAnswer) {
@@ -41,7 +41,12 @@ function formatAnswerText(answer: string): string {
     ? trimmedAnswer
     : `${trimmedAnswer} ครับ`;
 
-  return `${politeAnswer}\n\nหากข้อมูลนี้ไม่ตรงกับประกาศล่าสุด สามารถกดปุ่ม feedback ด้านล่างเพื่อให้ทีมตรวจสอบต่อได้ครับ`;
+  const confidenceNote =
+    result.confidence >= 60 && result.confidence < 75
+      ? "พบข้อมูลที่ใกล้เคียงที่สุด อาจต้องตรวจสอบเพิ่มเติม\n\n"
+      : "";
+
+  return `${confidenceNote}${politeAnswer}\n\nหากข้อมูลนี้ไม่ตรงกับประกาศล่าสุด สามารถกดปุ่ม feedback ด้านล่างเพื่อให้ทีมตรวจสอบต่อได้ครับ`;
 }
 
 export function formatAnswerEmbed({
@@ -102,7 +107,7 @@ export function formatAnswerEmbed({
 
   return {
     color: 0x1f8b4c,
-    description: truncate(formatAnswerText(answer), 4096),
+    description: truncate(formatAnswerText(answer, result), 4096),
     fields,
     title: "คำตอบ"
   };

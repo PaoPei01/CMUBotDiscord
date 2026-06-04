@@ -14,6 +14,7 @@ function searchResult(overrides: Partial<KnowledgeSearchResult> = {}): Knowledge
     facultyGroup: null,
     faqId: "faq-1",
     lastVerifiedAt: "2026-06-02T00:00:00Z",
+    matchedReason: "test match",
     method: "keyword",
     priority: "medium",
     question: "Verified question",
@@ -61,17 +62,31 @@ describe("composeWorkerAnswer", () => {
     expect(result.failureReason).toBe("high_confidence_direct_answer");
   });
 
-  it("does not call AI when confidence is below 70", async () => {
+  it("does not call AI when confidence is below 60", async () => {
     const aiProvider = provider();
     const result = await composeWorkerAnswer({
       aiProvider,
       question: "question",
-      result: searchResult({ confidence: 60 })
+      result: searchResult({ confidence: 55 })
     });
 
     expect(aiProvider.generateAnswer).not.toHaveBeenCalled();
     expect(result.shouldAnswer).toBe(false);
     expect(result.failureReason).toBe("confidence_below_ai_threshold");
+  });
+
+  it("answers low-confidence verified matches without calling AI", async () => {
+    const aiProvider = provider();
+    const result = await composeWorkerAnswer({
+      aiProvider,
+      question: "question",
+      result: searchResult({ confidence: 65, method: "fuzzy" })
+    });
+
+    expect(aiProvider.generateAnswer).not.toHaveBeenCalled();
+    expect(result.shouldAnswer).toBe(true);
+    expect(result.answer).toBe("Short verified answer");
+    expect(result.failureReason).toBe("low_confidence_direct_answer");
   });
 
   it("does not call AI when contexts are empty", async () => {

@@ -206,6 +206,21 @@ th {
   color: #8c2f2f;
 }
 
+.status-unanswered {
+  background: #fff2d9;
+  color: #8a5200;
+}
+
+.status-low-confidence {
+  background: #e8f0ff;
+  color: #1f4f9d;
+}
+
+.status-negative-feedback {
+  background: #f2e8e8;
+  color: #8c2f2f;
+}
+
 .message {
   border-radius: 6px;
   margin-bottom: 16px;

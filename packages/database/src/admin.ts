@@ -288,6 +288,18 @@ export type AdminQuestionLog = QuestionLogRow & {
   matched_faq: Pick<FAQRow, "id" | "question"> | null;
 };
 
+export type AdminQuestionReviewItem = {
+  confidence: number | null;
+  created_at: string;
+  feedback_vote: FeedbackVote | null;
+  id: string;
+  matched_faq: Pick<FAQRow, "id" | "question"> | null;
+  method: string | null;
+  reason: "unanswered" | "low_confidence" | "negative_feedback";
+  suggested_action: "add_faq" | "add_alias" | "add_keyword" | "review_faq";
+  user_question: string;
+};
+
 export type AdminDraftFAQ = DraftFAQRow & {
   keywords: DraftKeywordRow[];
   knowledge_source: KnowledgeSourceRow;
@@ -347,6 +359,7 @@ export type AdminDatabase = {
   listImportLogs(): Promise<AdminImportLog[]>;
   listMissingQuestions(): Promise<AdminQuestionLog[]>;
   listQuestionLogs(): Promise<AdminQuestionLog[]>;
+  listQuestionReviewItems(): Promise<AdminQuestionReviewItem[]>;
   listReviews(): Promise<AdminKnowledgeReview[]>;
   rejectDraft(id: string, reviewer?: string | null): Promise<void>;
   updateFaq(id: string, input: AdminFAQInput): Promise<void>;
@@ -565,6 +578,24 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     return faqs.filter((faq): faq is AdminFAQ => faq !== null);
   }
 
+  async function questionLogWithFaq(log: QuestionLogRow): Promise<AdminQuestionLog> {
+    if (!log.matched_faq_id) {
+      return { ...log, matched_faq: null };
+    }
+
+    const faq = await client
+      .from("faqs")
+      .select("id, question")
+      .eq("id", log.matched_faq_id)
+      .maybeSingle();
+
+    if (faq.error) {
+      throw new Error(faq.error.message);
+    }
+
+    return { ...log, matched_faq: faq.data };
+  }
+
   async function listQuestionLogs(): Promise<AdminQuestionLog[]> {
     const result = await client
       .from("question_logs")
@@ -576,25 +607,114 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       throw new Error(result.error.message);
     }
 
-    return Promise.all(
-      (result.data ?? []).map(async (log) => {
-        if (!log.matched_faq_id) {
-          return { ...log, matched_faq: null };
-        }
+    return Promise.all((result.data ?? []).map(questionLogWithFaq));
+  }
 
-        const faq = await client
-          .from("faqs")
-          .select("id, question")
-          .eq("id", log.matched_faq_id)
-          .maybeSingle();
+  function suggestedReviewAction(
+    reason: AdminQuestionReviewItem["reason"],
+    log: AdminQuestionLog
+  ): AdminQuestionReviewItem["suggested_action"] {
+    if (reason === "unanswered") {
+      return "add_faq";
+    }
 
-        if (faq.error) {
-          throw new Error(faq.error.message);
-        }
+    if (reason === "negative_feedback") {
+      return "review_faq";
+    }
 
-        return { ...log, matched_faq: faq.data };
-      })
+    return log.method === "fuzzy" || log.method === "full_text" ? "add_alias" : "add_keyword";
+  }
+
+  async function listQuestionReviewItems(): Promise<AdminQuestionReviewItem[]> {
+    const [unansweredResult, lowConfidenceResult, negativeFeedbackResult] = await Promise.all([
+      client
+        .from("question_logs")
+        .select("*")
+        .or("matched_faq_id.is.null,confidence.lt.60")
+        .order("created_at", { ascending: false })
+        .limit(50),
+      client
+        .from("question_logs")
+        .select("*")
+        .not("matched_faq_id", "is", null)
+        .gte("confidence", 60)
+        .lt("confidence", 75)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      client
+        .from("feedback")
+        .select("*")
+        .eq("vote", "down")
+        .order("created_at", { ascending: false })
+        .limit(50)
+    ]);
+
+    if (unansweredResult.error) {
+      throw new Error(unansweredResult.error.message);
+    }
+    if (lowConfidenceResult.error) {
+      throw new Error(lowConfidenceResult.error.message);
+    }
+    if (negativeFeedbackResult.error) {
+      throw new Error(negativeFeedbackResult.error.message);
+    }
+
+    const negativeLogIds = [
+      ...new Set((negativeFeedbackResult.data ?? []).map((feedback) => feedback.question_log_id))
+    ];
+    const negativeLogs =
+      negativeLogIds.length > 0
+        ? await client.from("question_logs").select("*").in("id", negativeLogIds)
+        : { data: [] as QuestionLogRow[], error: null };
+
+    if (negativeLogs.error) {
+      throw new Error(negativeLogs.error.message);
+    }
+
+    const feedbackByLogId = new Map(
+      (negativeFeedbackResult.data ?? []).map((feedback) => [feedback.question_log_id, feedback])
     );
+    const rows = [
+      ...(await Promise.all((unansweredResult.data ?? []).map(questionLogWithFaq))).map((log) => ({
+        log,
+        reason: "unanswered" as const,
+        vote: null
+      })),
+      ...(await Promise.all((lowConfidenceResult.data ?? []).map(questionLogWithFaq))).map(
+        (log) => ({
+          log,
+          reason: "low_confidence" as const,
+          vote: null
+        })
+      ),
+      ...(await Promise.all((negativeLogs.data ?? []).map(questionLogWithFaq))).map((log) => ({
+        log,
+        reason: "negative_feedback" as const,
+        vote: feedbackByLogId.get(log.id)?.vote ?? null
+      }))
+    ];
+    const uniqueRows = new Map<string, (typeof rows)[number]>();
+
+    for (const row of rows) {
+      uniqueRows.set(`${row.reason}:${row.log.id}`, row);
+    }
+
+    return [...uniqueRows.values()]
+      .sort(
+        (left, right) =>
+          new Date(right.log.created_at).getTime() - new Date(left.log.created_at).getTime()
+      )
+      .map(({ log, reason, vote }) => ({
+        confidence: log.confidence,
+        created_at: log.created_at,
+        feedback_vote: vote,
+        id: `${reason}:${log.id}`,
+        matched_faq: log.matched_faq,
+        method: log.method,
+        reason,
+        suggested_action: suggestedReviewAction(reason, log),
+        user_question: log.user_question
+      }));
   }
 
   async function getDraft(id: string): Promise<AdminDraftFAQ | null> {
@@ -1046,6 +1166,7 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
         matched_faq: null
       }));
     },
+    listQuestionReviewItems,
     listQuestionLogs,
     async listReviews() {
       const result = await client

@@ -1,14 +1,16 @@
 import { logQuestion } from "@campus-qa/database";
 import type { DatabaseServiceClient } from "@campus-qa/database";
 import type { QuestionLog } from "@campus-qa/database";
+import type { AIProvider } from "@campus-qa/ai";
 import type { SearchResult } from "@campus-qa/knowledge";
 import type { Message, MessageReplyOptions } from "discord.js";
 
 import type { NaturalQaRuntimeConfig } from "../config.js";
 import type { BotLogger } from "./commandRegistry.js";
+import { composeAskAnswer } from "./aiAnswerComposer.js";
 import {
   createAnswerComponents,
-  createAnswerEmbed,
+  createNaturalAnswerEmbed,
   createNotFoundComponents,
   createNotFoundEmbed,
   NOT_FOUND_MESSAGE
@@ -49,6 +51,7 @@ export type NaturalQaHandleResult = {
 };
 
 export type NaturalQaContext = {
+  aiProvider?: AIProvider | null;
   database: DatabaseServiceClient;
   knowledge: {
     searchKnowledge(question: string): Promise<SearchResult>;
@@ -178,6 +181,11 @@ export async function handleNaturalQaMessage(
   const searchResult = answerableResult(rawSearchResult)
     ? rawSearchResult
     : notFoundResult(rawSearchResult);
+  const answerComposition = await composeAskAnswer({
+    aiProvider: context.aiProvider ?? null,
+    question: trigger.question,
+    searchResult
+  });
   const responseTimeMs = Date.now() - startedAt;
   const questionLog = await safeLogNaturalQuestion({
     context,
@@ -185,16 +193,20 @@ export async function handleNaturalQaMessage(
     intent,
     message,
     responseTimeMs,
-    searchResult,
+    searchResult: answerComposition.result,
     trigger
   });
 
   context.logger.info(
     {
-      confidence: searchResult.confidence,
+      ai_provider: answerComposition.aiProvider,
+      ai_used: answerComposition.aiUsed,
+      confidence: answerComposition.result.confidence,
+      failure_reason: answerComposition.failureReason,
       intent,
-      matchedFaqId: searchResult.faqId,
-      method: searchResult.method,
+      matchedFaqId: answerComposition.result.faqId,
+      method: answerComposition.result.method,
+      prompt_context_count: answerComposition.promptContextCount,
       questionLogId: questionLog?.id ?? null,
       responseTimeMs,
       triggerType: trigger.triggerType
@@ -202,10 +214,15 @@ export async function handleNaturalQaMessage(
     "Completed natural Q&A search"
   );
 
-  if (searchResult.faqId && searchResult.confidence >= 60) {
+  if (answerComposition.shouldReplyWithAnswer) {
     await message.reply({
       ...(questionLog ? { components: createAnswerComponents(questionLog.id) } : {}),
-      embeds: [createAnswerEmbed({ question: trigger.question, result: searchResult })]
+      embeds: [
+        createNaturalAnswerEmbed({
+          question: trigger.question,
+          result: answerComposition.result
+        })
+      ]
     });
     return { intent, replied: true, trigger };
   }

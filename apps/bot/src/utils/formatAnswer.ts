@@ -169,6 +169,76 @@ export function createAnswerEmbed({
     .addFields(fields);
 }
 
+export function createNaturalAnswerEmbed({
+  question,
+  result
+}: {
+  question: string;
+  result: SearchResult;
+}): EmbedBuilder {
+  const sourceName = result.source?.name ?? "ไม่ระบุแหล่งที่มา";
+  const sourceUrl = result.source?.url;
+  const sourceValue = sourceUrl ? `[${sourceName}](${sourceUrl})` : sourceName;
+  const answer = result.answer ?? result.answerShort ?? NOT_FOUND_MESSAGE;
+  const relatedDetails = [
+    result.category ? `หมวดหมู่: ${result.category}` : null,
+    result.audience ? `สำหรับ: ${result.audience}` : null,
+    result.facultyGroup ? `คณะ/กลุ่ม: ${result.facultyGroup}` : null
+  ].filter(Boolean);
+  const fields = [
+    {
+      name: "คำถาม",
+      value: truncate(question)
+    }
+  ];
+
+  if (result.confidence >= 60 && result.confidence < 75) {
+    fields.push({
+      name: "หมายเหตุ",
+      value: LOW_CONFIDENCE_MESSAGE
+    });
+  }
+
+  if (relatedDetails.length > 0) {
+    fields.push({
+      name: "ข้อมูลที่เกี่ยวข้อง",
+      value: truncate(relatedDetails.join("\n"))
+    });
+  }
+
+  fields.push({
+    name: "แหล่งข้อมูล",
+    value: truncate(sourceValue)
+  });
+
+  if (result.sourcePage) {
+    fields.push({
+      name: "หน้า/หัวข้ออ้างอิง",
+      value: truncate(result.sourcePage)
+    });
+  }
+
+  if (result.source?.lastVerifiedAt) {
+    fields.push({
+      name: "ตรวจสอบล่าสุด",
+      value: formatDate(result.source.lastVerifiedAt)
+    });
+  }
+
+  if (isExpired(result.validUntil)) {
+    fields.push({
+      name: "คำเตือน",
+      value: EXPIRED_WARNING
+    });
+  }
+
+  return new EmbedBuilder()
+    .setTitle("คำตอบ")
+    .setColor(0x1f8b4c)
+    .setDescription(truncate(answer, 3000))
+    .addFields(fields);
+}
+
 export function createNotFoundEmbed(question: string): EmbedBuilder {
   return new EmbedBuilder()
     .setTitle("คำตอบจากฐานข้อมูล")

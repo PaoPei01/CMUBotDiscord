@@ -294,6 +294,10 @@ export type AdminQuestionLog = QuestionLogRow & {
   matched_faq: Pick<FAQRow, "id" | "question"> | null;
 };
 
+export type AdminFreshnessItem = AdminFAQ & {
+  freshness_reasons: Array<"expired" | "expiring_soon" | "stale_source">;
+};
+
 export type AdminQuestionReviewItem = {
   confidence: number | null;
   created_at: string;
@@ -377,11 +381,13 @@ export type AdminDatabase = {
   }): Promise<AdminFAQ[]>;
   listImportLogs(): Promise<AdminImportLog[]>;
   listMissingQuestions(): Promise<AdminQuestionLog[]>;
+  listFreshnessItems(): Promise<AdminFreshnessItem[]>;
   listQuestionLogs(): Promise<AdminQuestionLog[]>;
   listQuestionReviewItems(): Promise<AdminQuestionReviewItem[]>;
   listReviews(): Promise<AdminKnowledgeReview[]>;
   linkQuestionToFaq(input: { faqId: string; questionLogId: string }): Promise<void>;
   markQuestionReviewed(questionLogId: string, action?: string): Promise<void>;
+  markSourceReviewed(sourceId: string): Promise<void>;
   rejectDraft(id: string, reviewer?: string | null): Promise<void>;
   updateFaq(id: string, input: AdminFAQInput): Promise<void>;
 };
@@ -623,6 +629,43 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
 
     const faqs = await Promise.all((result.data ?? []).map((faq) => getFaq(faq.id)));
     return faqs.filter((faq): faq is AdminFAQ => faq !== null);
+  }
+
+  async function listFreshnessItems(): Promise<AdminFreshnessItem[]> {
+    const faqs = await listFaqs({});
+    const now = Date.now();
+    const next30Days = now + 30 * 24 * 60 * 60 * 1000;
+    const staleThreshold = now - 90 * 24 * 60 * 60 * 1000;
+
+    return faqs
+      .map((faq) => {
+        const validUntil = faq.valid_until ? new Date(faq.valid_until).getTime() : null;
+        const lastVerifiedAt = faq.source?.last_verified_at
+          ? new Date(faq.source.last_verified_at).getTime()
+          : null;
+        const freshness_reasons: AdminFreshnessItem["freshness_reasons"] = [];
+
+        if (validUntil !== null && validUntil < now) {
+          freshness_reasons.push("expired");
+        } else if (validUntil !== null && validUntil <= next30Days) {
+          freshness_reasons.push("expiring_soon");
+        }
+
+        if (lastVerifiedAt === null || lastVerifiedAt < staleThreshold) {
+          freshness_reasons.push("stale_source");
+        }
+
+        return {
+          ...faq,
+          freshness_reasons
+        };
+      })
+      .filter((faq) => faq.freshness_reasons.length > 0)
+      .sort((left, right) => {
+        const leftDate = left.valid_until ?? left.source?.last_verified_at ?? left.updated_at;
+        const rightDate = right.valid_until ?? right.source?.last_verified_at ?? right.updated_at;
+        return new Date(leftDate).getTime() - new Date(rightDate).getTime();
+      });
   }
 
   async function questionLogWithFaq(log: QuestionLogRow): Promise<AdminQuestionLog> {
@@ -1349,6 +1392,7 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     },
     listDrafts,
     listFaqs,
+    listFreshnessItems,
     async listImportLogs() {
       const result = await client
         .from("knowledge_import_logs")
@@ -1413,6 +1457,18 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       );
     },
     linkQuestionToFaq,
+    async markSourceReviewed(sourceId) {
+      const updated = await client
+        .from("sources")
+        .update({
+          last_verified_at: new Date().toISOString()
+        })
+        .eq("id", sourceId);
+
+      if (updated.error) {
+        throw new Error(updated.error.message);
+      }
+    },
     markQuestionReviewed,
     rejectDraft,
     async updateFaq(id, input) {

@@ -221,6 +221,21 @@ th {
   color: #8c2f2f;
 }
 
+.status-expired {
+  background: #f2e8e8;
+  color: #8c2f2f;
+}
+
+.status-expiring-soon {
+  background: #fff2d9;
+  color: #8a5200;
+}
+
+.status-stale-source {
+  background: #e8f0ff;
+  color: #1f4f9d;
+}
+
 .message {
   border-radius: 6px;
   margin-bottom: 16px;

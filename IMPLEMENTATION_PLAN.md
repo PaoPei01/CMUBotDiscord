@@ -573,6 +573,37 @@ Validation results:
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
 
+## Source Freshness Dashboard
+
+Status: complete.
+
+Goal: Help admins identify stale or expiring verified FAQ information.
+
+Completed scope:
+
+- Added admin `/freshness` page.
+- Freshness page flags:
+  - FAQs with `valid_until` in the past.
+  - FAQs with `valid_until` within the next 30 days.
+  - FAQs whose source `last_verified_at` is missing or older than 90 days.
+- Page shows FAQ question, category, source name/link, last verified date, valid range, status, and priority.
+- Added edit FAQ links for each flagged row.
+- Added optional server-side `Mark source reviewed` action that updates only `sources.last_verified_at`.
+- Added navigation link to the admin header.
+
+Not included:
+
+- No answer behavior changes.
+- No automatic source verification.
+- No AI usage.
+- No automatic FAQ content changes.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+
 ## FAQ Metadata Schema Update
 
 Status: complete.

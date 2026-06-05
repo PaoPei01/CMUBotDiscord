@@ -78,7 +78,13 @@ Discord /ask
 ## Current Implementation Alignment
 
 - Cloudflare Worker is the primary `/ask` runtime.
+- Discord Developer Portal Interactions Endpoint URL should point to the Worker
+  `/discord` route.
+- `/ask` should be registered with the Worker interaction command script:
+  `corepack pnpm deploy:worker-commands`.
 - Gateway `apps/bot` keeps `/ask` available for compatibility, but its main runtime-only responsibility is natural Q&A via `messageCreate`.
+- `apps/bot` is optional in production and should not be treated as the primary
+  `/ask` runtime.
 - Natural Q&A remains behind feature flag, channel allowlist, and mention/prefix guard.
 - Worker and Gateway answer composition now share the same verified answer policy:
   - confidence `>= 90`: answer directly from verified FAQ and do not call AI
@@ -88,6 +94,33 @@ Discord /ask
 - If AI fails for confidence `70-89`, the system falls back to the direct verified FAQ answer.
 - If verified context or citation source is missing, the system returns the not-found message instead of serving an uncited answer.
 - Question logging is best-effort and must not block Discord responses.
+
+## Deployment Responsibility Matrix
+
+| Change type | Runtime/action |
+| --- | --- |
+| Worker `/ask`, search, feedback, or AI-composer policy | `corepack pnpm deploy:worker` |
+| Slash command schema or guild command registration | `corepack pnpm deploy:worker-commands` |
+| Discord Interaction Webhook URL | Set `https://<worker-url>/discord` in Discord Developer Portal |
+| Supabase migrations/RPCs/columns | Run migration before deploying dependent runtime |
+| Admin dashboard pages/actions | Redeploy admin host, such as Vercel |
+| Optional natural Q&A `messageCreate` behavior | Restart/redeploy `apps/bot` |
+| Disable natural Q&A | Set `NATURAL_QA_ENABLED=false` or empty `CAMPUS_QA_CHANNEL_IDS`, then restart `apps/bot` if running |
+
+Worker production secrets:
+
+- `DISCORD_APPLICATION_ID`
+- `DISCORD_PUBLIC_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY` only when Worker AI composition is enabled
+
+Local command-registration variables:
+
+- `DISCORD_BOT_TOKEN` or `DISCORD_TOKEN`
+- `DISCORD_APPLICATION_ID` or `DISCORD_CLIENT_ID`
+- `DISCORD_GUILD_ID`
+- `DISCORD_INTERACTIONS_ENDPOINT_URL`
 
 ## Suggested Modules
 

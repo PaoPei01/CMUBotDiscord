@@ -80,11 +80,30 @@ AI must never answer without retrieved verified context. If retrieved context is
 - PostgreSQL
 - pgvector
 
+## Production Runtime Responsibilities
+
+Production `/ask` runs through Cloudflare Workers:
+
+```text
+Discord /ask
+  -> Discord Interaction Webhook
+  -> apps/worker /discord
+  -> Supabase verified FAQ search
+  -> edit original Discord interaction response
+```
+
+- `apps/worker` is the primary production runtime for `/ask`.
+- Discord Developer Portal `Interactions Endpoint URL` must point to `https://<worker-url>/discord`.
+- Register `/ask` with `corepack pnpm deploy:worker-commands` for the Worker interaction flow.
+- `apps/bot` is optional in production. Use it only when natural Q&A via `messageCreate` is enabled.
+- Do not treat `apps/bot` as the primary production `/ask` runtime.
+
 ## Planned Repository Structure
 
 ```text
 apps/
   bot/
+  worker/
   admin/
 
 packages/
@@ -118,28 +137,24 @@ cp .env.example .env
 
 Do not commit `.env`.
 
-Future setup steps:
-
-1. Create a Discord application in the Discord Developer Portal.
-2. Create a bot user and copy the bot token.
-3. Configure OAuth2 and invite the bot to the target server with slash command permissions.
-4. Create a Supabase project with PostgreSQL.
-5. Enable pgvector when the vector search phase begins.
-6. Register Discord slash commands in the Discord Bot MVP phase.
-7. Load verified knowledge records after database schema exists.
+Create a Discord application, create a Supabase project, run the Supabase
+migrations, and deploy the Worker before testing `/ask` in Discord.
 
 ## Run
 
-Start the bot foundation health process:
+Start the admin app locally:
 
 ```sh
-pnpm dev:bot
+corepack pnpm dev:admin
 ```
 
-Start the admin app:
+Run the optional Gateway bot locally only when natural Q&A is enabled:
 
 ```sh
-pnpm dev:admin
+set -a
+source .env
+set +a
+corepack pnpm dev:bot
 ```
 
 Admin login:
@@ -151,12 +166,20 @@ Admin login:
 Register guild slash commands:
 
 ```sh
-pnpm deploy:commands
+set -a
+source .env
+set +a
+corepack pnpm deploy:worker-commands
 ```
 
-The command registration script deploys to the single guild configured by `DISCORD_GUILD_ID`. It does not deploy global commands.
+The Worker command registration script deploys `/ask` to the single guild
+configured by `DISCORD_GUILD_ID`. It does not deploy global commands.
 
-The bot logs in to Discord and listens only for interactions. It does not read normal chat messages.
+Deploy the Worker:
+
+```sh
+corepack pnpm deploy:worker
+```
 
 The admin app provides FAQ management, question logs, and missing-answer review. Supabase service-role access is used only from server-side code.
 
@@ -167,6 +190,45 @@ See `.env.example` for required configuration placeholders.
 Secrets must be stored in `.env` or the deployment platform secret store. Do not commit `.env` files or API keys.
 
 Service role keys must only be used server-side.
+
+Worker secrets:
+
+- `DISCORD_APPLICATION_ID`
+- `DISCORD_PUBLIC_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY` if Worker AI composition is enabled
+
+Local `.env` values for command registration and local development:
+
+- `DISCORD_BOT_TOKEN` or `DISCORD_TOKEN`
+- `DISCORD_APPLICATION_ID` or `DISCORD_CLIENT_ID`
+- `DISCORD_GUILD_ID`
+- `DISCORD_INTERACTIONS_ENDPOINT_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ADMIN_PASSWORD`
+
+Optional Gateway natural Q&A variables:
+
+- `NATURAL_QA_ENABLED=false` disables natural Q&A.
+- `CAMPUS_QA_CHANNEL_IDS=` empty also prevents natural Q&A from running.
+- `NATURAL_QA_REQUIRE_MENTION=true` keeps natural Q&A mention-gated.
+
+## Restart And Deployment Guide
+
+- Worker code, Worker env, `/ask`, feedback buttons, or Worker retrieval changes:
+  deploy `apps/worker` with `corepack pnpm deploy:worker`.
+- Slash command definition changes:
+  run `corepack pnpm deploy:worker-commands`.
+- Admin dashboard changes:
+  redeploy the admin hosting target, such as Vercel.
+- Supabase migration changes:
+  run the migration in Supabase before deploying code that reads new columns or RPCs.
+- Optional Gateway natural Q&A changes:
+  restart/redeploy `apps/bot`.
+- Natural Q&A disable:
+  set `NATURAL_QA_ENABLED=false`, or leave `CAMPUS_QA_CHANNEL_IDS` empty, then restart the optional Gateway bot if it is running.
 
 ## Data Requirements
 

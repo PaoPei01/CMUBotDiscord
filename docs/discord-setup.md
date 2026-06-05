@@ -1,7 +1,12 @@
 # Discord Setup
 
-Use Discord's Interaction Webhook flow for the Cloudflare Worker. Do not run a
-long-lived Gateway bot for the Worker flow.
+Use Discord's Interaction Webhook flow for production `/ask`.
+
+- `apps/worker` is the primary production runtime.
+- Discord sends `/ask` interactions to `https://<worker-url>/discord`.
+- `apps/bot` is optional and should only be used for natural Q&A
+  `messageCreate` behavior when enabled.
+- Do not treat the Gateway bot as the primary production `/ask` runtime.
 
 ## Application Values
 
@@ -53,6 +58,7 @@ Required local env values:
 - `DISCORD_BOT_TOKEN` or `DISCORD_TOKEN`
 - `DISCORD_APPLICATION_ID` or `DISCORD_CLIENT_ID`
 - `DISCORD_GUILD_ID`
+- `DISCORD_INTERACTIONS_ENDPOINT_URL`
 
 The command registered is:
 
@@ -76,6 +82,36 @@ Minimum practical permissions for slash-command responses:
 The Worker response uses the interaction webhook token, so it does not read
 normal Discord messages.
 
+## Optional Gateway Bot For Natural Q&A
+
+Run `apps/bot` only when natural Q&A needs to process normal Discord messages
+through `messageCreate`.
+
+Required local/host env for the optional Gateway bot:
+
+- `DISCORD_TOKEN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NATURAL_QA_ENABLED`
+- `CAMPUS_QA_CHANNEL_IDS`
+- `NATURAL_QA_REQUIRE_MENTION`
+- `NATURAL_QA_PREFIXES`
+- `NATURAL_QA_MIN_QUESTION_LENGTH`
+
+Disable natural Q&A with either:
+
+```text
+NATURAL_QA_ENABLED=false
+```
+
+or an empty channel allowlist:
+
+```text
+CAMPUS_QA_CHANNEL_IDS=
+```
+
+If the optional Gateway bot is running, restart it after changing these values.
+
 ## Test
 
 In the target server, run:
@@ -89,3 +125,16 @@ Ask a question that exists in active Supabase FAQ data, such as:
 ```text
 ค่าเทอมต้องจ่ายวันไหน
 ```
+
+## Which Runtime To Restart
+
+- Worker `/ask`, Worker search, Worker AI policy, or feedback behavior changed:
+  redeploy Worker with `corepack pnpm deploy:worker`.
+- Slash command schema changed:
+  run `corepack pnpm deploy:worker-commands`.
+- Natural Q&A message behavior changed:
+  restart/redeploy the optional `apps/bot` Gateway runtime.
+- Admin dashboard changed:
+  redeploy the admin host.
+- Supabase migration changed:
+  run the migration before testing the runtime that depends on it.

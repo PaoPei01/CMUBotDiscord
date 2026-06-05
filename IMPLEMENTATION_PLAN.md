@@ -431,6 +431,40 @@ Validation results:
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
 
+## Q&A Reliability Alignment
+
+Status: complete.
+
+Goal: Align Cloudflare Worker and Gateway bot answer behavior with the same verified Q&A policy.
+
+Completed scope:
+
+- Added shared verified answer policy in `@campus-qa/ai`.
+- Cloudflare Worker `/ask` now uses the shared policy.
+- Gateway `/ask` and natural Q&A now use the same policy.
+- Confidence policy is consistent across runtimes:
+  - `>= 90`: direct verified FAQ answer, no AI call.
+  - `70-89`: require verified context/source; AI may rewrite context only; provider failure falls back to direct FAQ.
+  - `< 70`: no answer and no AI call.
+- Gateway `/ask` no longer limits answerable methods to exact/alias/keyword only; policy handles full-text/fuzzy confidence.
+- Gateway question logging is best-effort so log failures do not block Discord responses.
+- Architecture proposal updated with current implementation alignment notes.
+
+Not included:
+
+- No modmail implementation.
+- No plugin marketplace.
+- No document/PDF import changes.
+- No new AI providers.
+- No database schema changes.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm test` passed.
+- `corepack pnpm build` passed.
+
 ## FAQ Metadata Schema Update
 
 Status: complete.

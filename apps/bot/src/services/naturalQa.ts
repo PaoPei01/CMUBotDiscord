@@ -69,7 +69,7 @@ function answerableResult(result: SearchResult): boolean {
     !isExpired(result.validUntil) &&
     Boolean(result.faqId) &&
     Boolean(result.answerShort ?? result.answer) &&
-    result.confidence >= 60
+    Boolean(result.source?.name)
   );
 }
 

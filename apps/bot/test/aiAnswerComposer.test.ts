@@ -70,7 +70,7 @@ describe("composeAskAnswer", () => {
 
     expect(aiProvider.generateAnswer).not.toHaveBeenCalled();
     expect(result.shouldReplyWithAnswer).toBe(false);
-    expect(result.failureReason).toBe("confidence_below_ai_threshold");
+    expect(result.failureReason).toBe("confidence_below_answer_threshold");
   });
 
   it("does not call AI when no context exists", async () => {
@@ -89,7 +89,7 @@ describe("composeAskAnswer", () => {
 
   it("passes only retrieved verified context to AI", async () => {
     const aiProvider = provider();
-    await composeAskAnswer({
+    const result = await composeAskAnswer({
       aiProvider,
       question: "student question",
       searchResult: searchResult()
@@ -106,6 +106,7 @@ describe("composeAskAnswer", () => {
       ],
       question: "student question"
     });
+    expect(result.result.answerShort).toBe("Rewritten verified answer");
   });
 
   it("falls back to verified FAQ answer when provider fails", async () => {
@@ -121,6 +122,6 @@ describe("composeAskAnswer", () => {
     expect(result.aiUsed).toBe(false);
     expect(result.result.answer).toBe("Verified answer");
     expect(result.shouldReplyWithAnswer).toBe(true);
-    expect(result.failureReason).toBe("provider failed");
+    expect(result.failureReason).toBe("ai_provider_failed");
   });
 });

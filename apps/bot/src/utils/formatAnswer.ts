@@ -98,7 +98,7 @@ export function createAnswerEmbed({
   const answer = result.answerShort ?? result.answer ?? NOT_FOUND_MESSAGE;
   const fields = [];
 
-  if (result.confidence >= 60 && result.confidence < 75) {
+  if (result.confidence >= 70 && result.confidence < 90) {
     fields.push({
       name: "หมายเหตุ",
       value: LOW_CONFIDENCE_MESSAGE
@@ -192,7 +192,7 @@ export function createNaturalAnswerEmbed({
     }
   ];
 
-  if (result.confidence >= 60 && result.confidence < 75) {
+  if (result.confidence >= 70 && result.confidence < 90) {
     fields.push({
       name: "หมายเหตุ",
       value: LOW_CONFIDENCE_MESSAGE

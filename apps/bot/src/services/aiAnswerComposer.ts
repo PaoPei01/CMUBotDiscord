@@ -1,4 +1,5 @@
 import type { AIContext, AIProvider } from "@campus-qa/ai";
+import { applyVerifiedAnswerPolicy } from "@campus-qa/ai";
 import type { SearchResult } from "@campus-qa/knowledge";
 
 export type AnswerCompositionResult = {
@@ -37,88 +38,34 @@ export async function composeAskAnswer({
   searchResult: SearchResult;
 }): Promise<AnswerCompositionResult> {
   const contexts = buildRetrievedContexts(searchResult);
-  const base = {
-    aiProvider: aiProvider?.providerName ?? null,
-    promptContextCount: contexts.length,
-    result: searchResult
+  const policyResult = await applyVerifiedAnswerPolicy({
+    aiProvider,
+    confidence: searchResult.confidence,
+    contexts,
+    directAnswer: searchResult.answerShort ?? searchResult.answer,
+    faqId: searchResult.faqId,
+    question,
+    sources: searchResult.source?.name
+      ? [
+          {
+            name: searchResult.source.name,
+            ...(searchResult.source.url ? { url: searchResult.source.url } : {})
+          }
+        ]
+      : []
+  });
+
+  return {
+    aiProvider: policyResult.aiProvider,
+    aiUsed: policyResult.aiUsed,
+    failureReason: policyResult.failureReason,
+    promptContextCount: policyResult.promptContextCount,
+    result: {
+      ...searchResult,
+      ...(policyResult.answer
+        ? { answer: policyResult.answer, answerShort: policyResult.answer }
+        : {})
+    },
+    shouldReplyWithAnswer: policyResult.shouldAnswer
   };
-
-  if (!searchResult.answer || !searchResult.faqId) {
-    return {
-      ...base,
-      aiUsed: false,
-      failureReason: "no_retrieved_answer",
-      shouldReplyWithAnswer: false
-    };
-  }
-
-  if (searchResult.confidence >= 90) {
-    return {
-      ...base,
-      aiUsed: false,
-      failureReason: "high_confidence_direct_answer",
-      shouldReplyWithAnswer: true
-    };
-  }
-
-  if (searchResult.confidence < 70) {
-    return {
-      ...base,
-      aiUsed: false,
-      failureReason: "confidence_below_ai_threshold",
-      shouldReplyWithAnswer: false
-    };
-  }
-
-  if (contexts.length === 0) {
-    return {
-      ...base,
-      aiUsed: false,
-      failureReason: "no_verified_context",
-      shouldReplyWithAnswer: false
-    };
-  }
-
-  if (!aiProvider) {
-    return {
-      ...base,
-      aiUsed: false,
-      failureReason: "ai_provider_not_configured",
-      shouldReplyWithAnswer: true
-    };
-  }
-
-  try {
-    const aiAnswer = await aiProvider.generateAnswer({
-      contexts,
-      question
-    });
-
-    if (!aiAnswer.usedContext) {
-      return {
-        ...base,
-        aiUsed: true,
-        failureReason: "ai_reported_insufficient_context",
-        shouldReplyWithAnswer: false
-      };
-    }
-
-    return {
-      ...base,
-      aiUsed: true,
-      failureReason: null,
-      result: {
-        ...searchResult,
-        answer: aiAnswer.answer
-      },
-      shouldReplyWithAnswer: true
-    };
-  } catch (error) {
-    return {
-      ...base,
-      aiUsed: false,
-      failureReason: error instanceof Error ? error.message : "ai_provider_failed",
-      shouldReplyWithAnswer: true
-    };
-  }
 }

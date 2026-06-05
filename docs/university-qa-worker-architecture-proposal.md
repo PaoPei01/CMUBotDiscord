@@ -75,6 +75,19 @@ Discord /ask
   -> edit original Discord response
 ```
 
+## Current Implementation Alignment
+
+- Cloudflare Worker is the primary `/ask` runtime.
+- Gateway `apps/bot` keeps `/ask` available for compatibility, but its main runtime-only responsibility is natural Q&A via `messageCreate`.
+- Natural Q&A remains behind feature flag, channel allowlist, and mention/prefix guard.
+- Worker and Gateway answer composition now share the same verified answer policy:
+  - confidence `>= 90`: answer directly from verified FAQ and do not call AI
+  - confidence `70-89`: answer only when verified context/source exists; AI may rewrite that context only
+  - confidence `< 70`: do not answer and do not call AI
+- If AI fails for confidence `70-89`, the system falls back to the direct verified FAQ answer.
+- If verified context or citation source is missing, the system returns the not-found message instead of serving an uncited answer.
+- Question logging is best-effort and must not block Discord responses.
+
 ## Suggested Modules
 
 ### Worker App
@@ -267,4 +280,3 @@ Keep plugin boundaries strict: no module can bypass AnswerPolicy or serve uncite
 
 - Risk: plugin sprawl  
   Guardrail: modules cannot own core answer policy or bypass source validator
-

@@ -1,5 +1,7 @@
 export type { EmbeddingProvider, GeminiEmbeddingProviderOptions } from "./embeddings.js";
 export { GeminiEmbeddingProvider } from "./embeddings.js";
+export { applyVerifiedAnswerPolicy } from "./answerPolicy.js";
+export type { VerifiedAnswerPolicyResult } from "./answerPolicy.js";
 export { AIProviderFactory, createAIProviderFromEnv } from "./factory.js";
 export {
   AI_NOT_FOUND_MESSAGE,

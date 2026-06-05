@@ -204,4 +204,23 @@ describe("handleNaturalQaMessage", () => {
       "ยังไม่พบข้อมูลที่ยืนยันได้จากฐานข้อมูลของระบบ"
     );
   });
+
+  it("returns not-found for confidence below 70", async () => {
+    const { naturalMessage, replies } = message();
+    const ctx = context(searchResult({ confidence: 65, method: "fuzzy" }));
+
+    await handleNaturalQaMessage(naturalMessage, ctx, config);
+
+    expect(replies).toHaveLength(1);
+    expect(ctx.insertQuestionLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confidence: 65,
+        matchedFaqId: "faq-1",
+        method: "fuzzy"
+      })
+    );
+    expect(JSON.stringify(replies[0])).toContain(
+      "ยังไม่พบข้อมูลที่ยืนยันได้จากฐานข้อมูลของระบบ"
+    );
+  });
 });

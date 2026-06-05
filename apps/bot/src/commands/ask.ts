@@ -19,7 +19,9 @@ function normalizeQuestion(question: string): string {
 function isAllowedSearchResult(result: SearchResult): boolean {
   return (
     result.status === "active" &&
-    (result.method === "exact" || result.method === "alias" || result.method === "keyword")
+    Boolean(result.faqId) &&
+    Boolean(result.answerShort ?? result.answer) &&
+    Boolean(result.source?.name)
   );
 }
 
@@ -89,6 +91,15 @@ export const askCommand: BotCommand = {
         method: answerComposition.result.method,
         responseTimeMs,
         userQuestion: question
+      }).catch((error: unknown) => {
+        context.logger.warn(
+          {
+            command: "ask",
+            errorMessage: error instanceof Error ? error.message : "Unknown log error"
+          },
+          "Ask command question logging failed"
+        );
+        return null;
       });
 
       context.logger.info(
@@ -101,7 +112,7 @@ export const askCommand: BotCommand = {
           matchedFaqId: answerComposition.result.faqId,
           method: answerComposition.result.method,
           prompt_context_count: answerComposition.promptContextCount,
-          questionLogId: questionLog.id,
+          questionLogId: questionLog?.id ?? null,
           responseTimeMs
         },
         "Completed ask command search"
@@ -109,14 +120,14 @@ export const askCommand: BotCommand = {
 
       if (answerComposition.shouldReplyWithAnswer) {
         await interaction.reply({
-          components: createAnswerComponents(questionLog.id),
+          ...(questionLog ? { components: createAnswerComponents(questionLog.id) } : {}),
           embeds: [createAnswerEmbed({ question, result: answerComposition.result })]
         });
         return;
       }
 
       await interaction.reply({
-        components: createNotFoundComponents(questionLog.id),
+        ...(questionLog ? { components: createNotFoundComponents(questionLog.id) } : {}),
         embeds: [createNotFoundEmbed(question)]
       });
     } catch (error) {

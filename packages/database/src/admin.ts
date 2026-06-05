@@ -60,6 +60,10 @@ type QuestionLogRow = {
   discord_guild_id: string | null;
   trigger_type: string | null;
   intent: string | null;
+  reviewed_at: string | null;
+  review_action: string | null;
+  review_notes: string | null;
+  review_linked_faq_id: string | null;
   created_at: string;
 };
 
@@ -293,12 +297,14 @@ export type AdminQuestionLog = QuestionLogRow & {
 export type AdminQuestionReviewItem = {
   confidence: number | null;
   created_at: string;
+  discord_guild_id: string | null;
   feedback_vote: FeedbackVote | null;
   id: string;
   matched_faq: Pick<FAQRow, "id" | "question"> | null;
   method: string | null;
   reason: "unanswered" | "low_confidence" | "negative_feedback";
   suggested_action: "add_faq" | "add_alias" | "add_keyword" | "review_faq";
+  question_log_id: string;
   user_question: string;
 };
 
@@ -339,9 +345,12 @@ export type AdminKnowledgeReview = KnowledgeReviewRow & {
 export type AdminImportLog = KnowledgeImportLogRow;
 
 export type AdminDatabase = {
+  addQuestionAliasToFaq(input: { faqId: string; questionLogId: string }): Promise<void>;
+  addQuestionKeywordToFaq(input: { faqId: string; questionLogId: string }): Promise<void>;
   approveDraft(id: string, reviewer?: string | null): Promise<string>;
   bulkApproveDrafts(ids: string[], reviewer?: string | null): Promise<string[]>;
   bulkRejectDrafts(ids: string[], reviewer?: string | null): Promise<void>;
+  createDraftFromQuestion(questionLogId: string): Promise<string>;
   createFaq(input: AdminFAQInput): Promise<string>;
   createIngestionWithDrafts(input: AdminIngestionInput): Promise<string>;
   editDraft(
@@ -363,6 +372,8 @@ export type AdminDatabase = {
   listQuestionLogs(): Promise<AdminQuestionLog[]>;
   listQuestionReviewItems(): Promise<AdminQuestionReviewItem[]>;
   listReviews(): Promise<AdminKnowledgeReview[]>;
+  linkQuestionToFaq(input: { faqId: string; questionLogId: string }): Promise<void>;
+  markQuestionReviewed(questionLogId: string, action?: string): Promise<void>;
   rejectDraft(id: string, reviewer?: string | null): Promise<void>;
   updateFaq(id: string, input: AdminFAQInput): Promise<void>;
 };
@@ -632,15 +643,17 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       client
         .from("question_logs")
         .select("*")
-        .or("matched_faq_id.is.null,confidence.lt.60")
+        .is("reviewed_at", null)
+        .or("matched_faq_id.is.null,confidence.is.null,confidence.lt.70")
         .order("created_at", { ascending: false })
         .limit(50),
       client
         .from("question_logs")
         .select("*")
+        .is("reviewed_at", null)
         .not("matched_faq_id", "is", null)
-        .gte("confidence", 60)
-        .lt("confidence", 75)
+        .gte("confidence", 70)
+        .lt("confidence", 90)
         .order("created_at", { ascending: false })
         .limit(50),
       client
@@ -666,7 +679,11 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     ];
     const negativeLogs =
       negativeLogIds.length > 0
-        ? await client.from("question_logs").select("*").in("id", negativeLogIds)
+        ? await client
+            .from("question_logs")
+            .select("*")
+            .is("reviewed_at", null)
+            .in("id", negativeLogIds)
         : { data: [] as QuestionLogRow[], error: null };
 
     if (negativeLogs.error) {
@@ -709,14 +726,139 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       .map(({ log, reason, vote }) => ({
         confidence: log.confidence,
         created_at: log.created_at,
+        discord_guild_id: log.discord_guild_id,
         feedback_vote: vote,
         id: `${reason}:${log.id}`,
         matched_faq: log.matched_faq,
         method: log.method,
+        question_log_id: log.id,
         reason,
         suggested_action: suggestedReviewAction(reason, log),
         user_question: log.user_question
       }));
+  }
+
+  async function getQuestionLog(id: string): Promise<QuestionLogRow> {
+    const result = await client.from("question_logs").select("*").eq("id", id).single();
+    return requireData(result.data, result.error);
+  }
+
+  async function markQuestionReviewed(questionLogId: string, action = "reviewed"): Promise<void> {
+    const updated = await client
+      .from("question_logs")
+      .update({
+        review_action: action,
+        reviewed_at: new Date().toISOString()
+      })
+      .eq("id", questionLogId);
+
+    if (updated.error) {
+      throw new Error(updated.error.message);
+    }
+  }
+
+  async function createDraftFromQuestion(questionLogId: string): Promise<string> {
+    const log = await getQuestionLog(questionLogId);
+    const sourceResult = await client
+      .from("knowledge_sources")
+      .insert({
+        content_hash: null,
+        file_name: null,
+        mime_type: null,
+        name: "Admin review queue",
+        source_type: "txt",
+        status: "processed",
+        url: null
+      })
+      .select()
+      .single();
+    const source = requireData(sourceResult.data, sourceResult.error);
+    const jobResult = await client
+      .from("ingestion_jobs")
+      .insert({
+        chunk_size_words: 0,
+        completed_at: new Date().toISOString(),
+        error_message: null,
+        knowledge_source_id: source.id,
+        overlap_words: 0,
+        parser: "admin-review",
+        status: "completed"
+      })
+      .select()
+      .single();
+    const job = requireData(jobResult.data, jobResult.error);
+    const draftResult = await client
+      .from("draft_faqs")
+      .insert({
+        answer: "TODO: เติมคำตอบจากแหล่งข้อมูลที่ตรวจสอบแล้ว",
+        category: "Review",
+        confidence: 0,
+        duplicate_confidence: null,
+        duplicate_of_draft_id: null,
+        duplicate_of_faq_id: null,
+        ingestion_job_id: job.id,
+        knowledge_source_id: source.id,
+        question: log.user_question.trim(),
+        reviewed_at: null,
+        status: "pending"
+      })
+      .select()
+      .single();
+    const draft = requireData(draftResult.data, draftResult.error);
+
+    await logImport({
+      action: "draft_created_from_review",
+      draftFaqId: draft.id,
+      ingestionJobId: job.id,
+      message: "Draft FAQ created from admin review queue",
+      metadata: { questionLogId }
+    });
+    await markQuestionReviewed(questionLogId, "created_draft");
+    return draft.id;
+  }
+
+  async function linkQuestionToFaq(input: { faqId: string; questionLogId: string }): Promise<void> {
+    const updated = await client
+      .from("question_logs")
+      .update({
+        matched_faq_id: input.faqId,
+        review_action: "linked_faq",
+        review_linked_faq_id: input.faqId,
+        reviewed_at: new Date().toISOString()
+      })
+      .eq("id", input.questionLogId);
+
+    if (updated.error) {
+      throw new Error(updated.error.message);
+    }
+  }
+
+  async function addQuestionAliasToFaq(input: { faqId: string; questionLogId: string }): Promise<void> {
+    const log = await getQuestionLog(input.questionLogId);
+    const inserted = await client.from("faq_aliases").insert({
+      alias: log.user_question.trim(),
+      faq_id: input.faqId
+    });
+
+    if (inserted.error) {
+      throw new Error(inserted.error.message);
+    }
+
+    await linkQuestionToFaq(input);
+  }
+
+  async function addQuestionKeywordToFaq(input: { faqId: string; questionLogId: string }): Promise<void> {
+    const log = await getQuestionLog(input.questionLogId);
+    const inserted = await client.from("faq_keywords").insert({
+      faq_id: input.faqId,
+      keyword: log.user_question.trim()
+    });
+
+    if (inserted.error) {
+      throw new Error(inserted.error.message);
+    }
+
+    await linkQuestionToFaq(input);
   }
 
   async function getDraft(id: string): Promise<AdminDraftFAQ | null> {
@@ -967,6 +1109,8 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
   }
 
   return {
+    addQuestionAliasToFaq,
+    addQuestionKeywordToFaq,
     approveDraft,
     async bulkApproveDrafts(ids, reviewer) {
       const productionFaqIds: string[] = [];
@@ -993,6 +1137,7 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
         });
       }
     },
+    createDraftFromQuestion,
     async createFaq(input) {
       const sourceId = await findOrCreateSource(input);
       const created = await client
@@ -1201,6 +1346,8 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
         })
       );
     },
+    linkQuestionToFaq,
+    markQuestionReviewed,
     rejectDraft,
     async updateFaq(id, input) {
       const sourceId = await findOrCreateSource(input);

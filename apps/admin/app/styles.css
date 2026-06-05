@@ -255,3 +255,24 @@ th {
   font-size: 13px;
   padding: 6px 8px;
 }
+
+.review-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 280px;
+}
+
+.review-actions .button {
+  width: 100%;
+}
+
+.review-link-form {
+  display: grid;
+  gap: 8px;
+}
+
+.review-inline-buttons {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

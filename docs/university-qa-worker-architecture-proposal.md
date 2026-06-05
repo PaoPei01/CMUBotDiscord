@@ -130,6 +130,7 @@ Insufficient context = not-found response.
 - CSV import
 - missing questions review
 - feedback review
+- review queue actions: mark reviewed, create draft, link FAQ, add alias, add keyword
 - future: draft FAQ approval, modmail-like handoff, audit log
 
 ## Database Ideas

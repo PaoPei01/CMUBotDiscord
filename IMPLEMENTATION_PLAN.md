@@ -465,6 +465,40 @@ Validation results:
 - `corepack pnpm test` passed.
 - `corepack pnpm build` passed.
 
+## Minimal Admin Review Queue
+
+Status: complete.
+
+Goal: Turn missing questions and negative feedback into an admin review workflow.
+
+Completed scope:
+
+- `/reviews` now shows open unanswered questions, low-confidence matches, and down-voted answers.
+- Review queue rows include question text, matched FAQ, confidence, method, created time, and Discord guild id.
+- Added server-side review actions:
+  - mark reviewed
+  - create FAQ draft from a question
+  - link question to an existing FAQ
+  - add the question as an alias to an existing FAQ
+  - add the question as a keyword to an existing FAQ
+- Draft creation uses the existing draft FAQ workflow and does not publish new FAQ records directly.
+- Added nullable review metadata to `question_logs` for reviewed status and linked FAQ tracking.
+- Kept existing import review history and import logs visible below the question queue.
+
+Not included:
+
+- No AI implementation.
+- No modmail implementation.
+- No unrelated admin features.
+- No direct production FAQ publishing from review queue.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.
+
 ## FAQ Metadata Schema Update
 
 Status: complete.

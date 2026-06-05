@@ -536,6 +536,43 @@ Validation results:
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
 
+## Review Queue Alias/Keyword Safety
+
+Status: complete.
+
+Goal: Make admin review queue alias and keyword actions safer before writing FAQ matching data.
+
+Completed scope:
+
+- Replaced one-click alias/keyword actions on `/reviews` with editable inputs.
+- Alias input is pre-filled with the user question.
+- Keyword input is pre-filled with a short deterministic suggestion when possible.
+- Server actions validate alias/keyword values before insert:
+  - trim whitespace
+  - normalize repeated spaces
+  - minimum length 2
+  - maximum length 200
+  - reject empty values
+- Duplicate prevention is enforced in service code using case/space-insensitive comparison.
+- Duplicate alias/keyword values are not inserted, but the review item can still be linked/marked reviewed.
+- Added direct lookup indexes for `(faq_id, alias)` and `(faq_id, keyword)`.
+- Added a migration TODO for case/space-insensitive unique indexes after existing duplicate data is audited.
+- Server-side only actions remain behind `requireAdmin()`.
+
+Not included:
+
+- No direct FAQ publishing.
+- No AI changes.
+- No modmail changes.
+- No unrelated admin features.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.
+
 ## FAQ Metadata Schema Update
 
 Status: complete.

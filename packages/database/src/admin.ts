@@ -345,8 +345,16 @@ export type AdminKnowledgeReview = KnowledgeReviewRow & {
 export type AdminImportLog = KnowledgeImportLogRow;
 
 export type AdminDatabase = {
-  addQuestionAliasToFaq(input: { faqId: string; questionLogId: string }): Promise<void>;
-  addQuestionKeywordToFaq(input: { faqId: string; questionLogId: string }): Promise<void>;
+  addQuestionAliasToFaq(input: {
+    alias: string;
+    faqId: string;
+    questionLogId: string;
+  }): Promise<void>;
+  addQuestionKeywordToFaq(input: {
+    faqId: string;
+    keyword: string;
+    questionLogId: string;
+  }): Promise<void>;
   approveDraft(id: string, reviewer?: string | null): Promise<string>;
   bulkApproveDrafts(ids: string[], reviewer?: string | null): Promise<string[]>;
   bulkRejectDrafts(ids: string[], reviewer?: string | null): Promise<void>;
@@ -385,6 +393,32 @@ type AdminOptions = {
 
 function compactValues(values: string[]): string[] {
   return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function normalizeReviewTerm(value: string): string {
+  return value.trim().replace(/\s+/gu, " ");
+}
+
+function duplicateKey(value: string): string {
+  return normalizeReviewTerm(value).toLocaleLowerCase("th-TH");
+}
+
+function validateReviewTerm(value: string, label: "Alias" | "Keyword"): string {
+  const normalized = normalizeReviewTerm(value);
+
+  if (normalized.length === 0) {
+    throw new Error(`${label} is required`);
+  }
+
+  if (normalized.length < 2) {
+    throw new Error(`${label} must be at least 2 characters`);
+  }
+
+  if (normalized.length > 200) {
+    throw new Error(`${label} must be 200 characters or fewer`);
+  }
+
+  return normalized;
 }
 
 function createFaqCode(prefix: string): string {
@@ -833,29 +867,61 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     }
   }
 
-  async function addQuestionAliasToFaq(input: { faqId: string; questionLogId: string }): Promise<void> {
-    const log = await getQuestionLog(input.questionLogId);
-    const inserted = await client.from("faq_aliases").insert({
-      alias: log.user_question.trim(),
-      faq_id: input.faqId
-    });
+  async function addQuestionAliasToFaq(input: {
+    alias: string;
+    faqId: string;
+    questionLogId: string;
+  }): Promise<void> {
+    const alias = validateReviewTerm(input.alias, "Alias");
+    const existing = await client.from("faq_aliases").select("alias").eq("faq_id", input.faqId);
 
-    if (inserted.error) {
-      throw new Error(inserted.error.message);
+    if (existing.error) {
+      throw new Error(existing.error.message);
+    }
+
+    const hasDuplicate = (existing.data ?? []).some(
+      (row) => duplicateKey(row.alias) === duplicateKey(alias)
+    );
+
+    if (!hasDuplicate) {
+      const inserted = await client.from("faq_aliases").insert({
+        alias,
+        faq_id: input.faqId
+      });
+
+      if (inserted.error) {
+        throw new Error(inserted.error.message);
+      }
     }
 
     await linkQuestionToFaq(input);
   }
 
-  async function addQuestionKeywordToFaq(input: { faqId: string; questionLogId: string }): Promise<void> {
-    const log = await getQuestionLog(input.questionLogId);
-    const inserted = await client.from("faq_keywords").insert({
-      faq_id: input.faqId,
-      keyword: log.user_question.trim()
-    });
+  async function addQuestionKeywordToFaq(input: {
+    faqId: string;
+    keyword: string;
+    questionLogId: string;
+  }): Promise<void> {
+    const keyword = validateReviewTerm(input.keyword, "Keyword");
+    const existing = await client.from("faq_keywords").select("keyword").eq("faq_id", input.faqId);
 
-    if (inserted.error) {
-      throw new Error(inserted.error.message);
+    if (existing.error) {
+      throw new Error(existing.error.message);
+    }
+
+    const hasDuplicate = (existing.data ?? []).some(
+      (row) => duplicateKey(row.keyword) === duplicateKey(keyword)
+    );
+
+    if (!hasDuplicate) {
+      const inserted = await client.from("faq_keywords").insert({
+        faq_id: input.faqId,
+        keyword
+      });
+
+      if (inserted.error) {
+        throw new Error(inserted.error.message);
+      }
     }
 
     await linkQuestionToFaq(input);

@@ -17,6 +17,11 @@ function reviewInput(formData: FormData): { faqId: string; questionLogId: string
   };
 }
 
+function errorRedirect(error: unknown): never {
+  const message = error instanceof Error ? error.message : "Review action failed";
+  redirect(`/reviews?error=${encodeURIComponent(message)}`);
+}
+
 function requireQuestionLogId(formData: FormData): string {
   const questionLogId = stringValue(formData.get("questionLogId"));
 
@@ -70,7 +75,14 @@ export async function linkQuestionToFaqAction(formData: FormData): Promise<void>
 export async function addAliasFromQuestionAction(formData: FormData): Promise<void> {
   requireAdmin();
 
-  await getAdminDatabase().addQuestionAliasToFaq(requireFaqReviewInput(formData));
+  try {
+    await getAdminDatabase().addQuestionAliasToFaq({
+      ...requireFaqReviewInput(formData),
+      alias: stringValue(formData.get("alias"))
+    });
+  } catch (error) {
+    errorRedirect(error);
+  }
 
   revalidatePath("/reviews");
   revalidatePath("/faq");
@@ -80,7 +92,14 @@ export async function addAliasFromQuestionAction(formData: FormData): Promise<vo
 export async function addKeywordFromQuestionAction(formData: FormData): Promise<void> {
   requireAdmin();
 
-  await getAdminDatabase().addQuestionKeywordToFaq(requireFaqReviewInput(formData));
+  try {
+    await getAdminDatabase().addQuestionKeywordToFaq({
+      ...requireFaqReviewInput(formData),
+      keyword: stringValue(formData.get("keyword"))
+    });
+  } catch (error) {
+    errorRedirect(error);
+  }
 
   revalidatePath("/reviews");
   revalidatePath("/faq");

@@ -15,8 +15,8 @@ const reasonLabels = {
 };
 
 const successMessages: Record<string, string> = {
-  "alias-added": "Alias added and review item marked reviewed.",
-  "keyword-added": "Keyword added and review item marked reviewed.",
+  "alias-added": "Alias saved or already existed; review item marked reviewed.",
+  "keyword-added": "Keyword saved or already existed; review item marked reviewed.",
   linked: "Question linked to FAQ and marked reviewed.",
   reviewed: "Review item marked reviewed."
 };
@@ -25,10 +25,25 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleString();
 }
 
+function suggestedKeyword(question: string): string {
+  const normalized = question.trim().replace(/\s+/gu, " ");
+  const words = normalized.split(" ").filter((word) => word.length >= 2);
+
+  if (words.length === 0) {
+    return normalized.length <= 40 ? normalized : "";
+  }
+
+  return words
+    .sort((left, right) => right.length - left.length)
+    .slice(0, 3)
+    .join(" ")
+    .slice(0, 80);
+}
+
 export default async function ReviewsPage({
   searchParams
 }: {
-  searchParams?: { success?: string };
+  searchParams?: { error?: string; success?: string };
 }) {
   requireAdmin();
 
@@ -40,6 +55,7 @@ export default async function ReviewsPage({
     database.listImportLogs()
   ]);
   const success = searchParams?.success ? successMessages[searchParams.success] : null;
+  const error = searchParams?.error ? decodeURIComponent(searchParams.error) : null;
 
   return (
     <main className="page">
@@ -52,6 +68,7 @@ export default async function ReviewsPage({
         </div>
       </div>
       {success ? <div className="message message-success">{success}</div> : null}
+      {error ? <div className="message message-error">{error}</div> : null}
       <section className="panel">
         <div className="section-heading">
           <div>
@@ -131,25 +148,78 @@ export default async function ReviewsPage({
                             </option>
                           ))}
                         </select>
-                        <div className="review-inline-buttons">
-                          <button className="button button-secondary" type="submit">
-                            Link
-                          </button>
-                          <button
-                            className="button button-secondary"
-                            formAction={addAliasFromQuestionAction}
-                            type="submit"
-                          >
-                            Add alias
-                          </button>
-                          <button
-                            className="button button-secondary"
-                            formAction={addKeywordFromQuestionAction}
-                            type="submit"
-                          >
-                            Add keyword
-                          </button>
-                        </div>
+                        <button className="button button-secondary" type="submit">
+                          Link
+                        </button>
+                      </form>
+                      <form action={addAliasFromQuestionAction} className="review-link-form">
+                        <input
+                          name="questionLogId"
+                          type="hidden"
+                          value={item.question_log_id}
+                        />
+                        <select
+                          aria-label="FAQ for alias"
+                          defaultValue={item.matched_faq?.id ?? ""}
+                          name="faqId"
+                          required
+                        >
+                          <option value="">Select FAQ</option>
+                          {faqs.map((faq) => (
+                            <option key={faq.id} value={faq.id}>
+                              {faq.question}
+                            </option>
+                          ))}
+                        </select>
+                        <label>
+                          Alias
+                          <input
+                            maxLength={200}
+                            minLength={2}
+                            name="alias"
+                            required
+                            type="text"
+                            defaultValue={item.user_question}
+                          />
+                        </label>
+                        <button className="button button-secondary" type="submit">
+                          Save alias
+                        </button>
+                      </form>
+                      <form action={addKeywordFromQuestionAction} className="review-link-form">
+                        <input
+                          name="questionLogId"
+                          type="hidden"
+                          value={item.question_log_id}
+                        />
+                        <select
+                          aria-label="FAQ for keyword"
+                          defaultValue={item.matched_faq?.id ?? ""}
+                          name="faqId"
+                          required
+                        >
+                          <option value="">Select FAQ</option>
+                          {faqs.map((faq) => (
+                            <option key={faq.id} value={faq.id}>
+                              {faq.question}
+                            </option>
+                          ))}
+                        </select>
+                        <label>
+                          Keyword
+                          <input
+                            maxLength={200}
+                            minLength={2}
+                            name="keyword"
+                            placeholder="Short keyword"
+                            required
+                            type="text"
+                            defaultValue={suggestedKeyword(item.user_question)}
+                          />
+                        </label>
+                        <button className="button button-secondary" type="submit">
+                          Save keyword
+                        </button>
                       </form>
                     </div>
                   </td>

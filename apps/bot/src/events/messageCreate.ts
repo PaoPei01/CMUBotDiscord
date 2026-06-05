@@ -20,11 +20,10 @@ export async function handleMessageCreate(
 
   try {
     await handleNaturalQaMessage(naturalMessage, context, naturalQaConfig);
-  } catch (error) {
+  } catch {
     context.logger.error(
       {
         channelId: message.channelId,
-        error,
         guildId: message.guildId
       },
       "Natural Q&A message handling failed"

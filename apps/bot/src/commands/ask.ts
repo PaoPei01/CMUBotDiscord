@@ -91,11 +91,10 @@ export const askCommand: BotCommand = {
         method: answerComposition.result.method,
         responseTimeMs,
         userQuestion: question
-      }).catch((error: unknown) => {
+      }).catch(() => {
         context.logger.warn(
           {
-            command: "ask",
-            errorMessage: error instanceof Error ? error.message : "Unknown log error"
+            command: "ask"
           },
           "Ask command question logging failed"
         );
@@ -130,11 +129,10 @@ export const askCommand: BotCommand = {
         ...(questionLog ? { components: createNotFoundComponents(questionLog.id) } : {}),
         embeds: [createNotFoundEmbed(question)]
       });
-    } catch (error) {
+    } catch {
       context.logger.error(
         {
           command: "ask",
-          error,
           guildId: interaction.guildId,
           searchMethod: "knowledge"
         },

@@ -121,10 +121,9 @@ async function safeLogNaturalQuestion({
       triggerType: trigger.triggerType,
       userQuestion: trigger.question
     });
-  } catch (error) {
+  } catch {
     context.logger.warn(
       {
-        errorMessage: error instanceof Error ? error.message : "Unknown log error",
         intent,
         triggerType: trigger.triggerType
       },

@@ -31,10 +31,9 @@ export async function handleFeedbackInteraction(
     });
 
     return ephemeralDiscordResponse("บันทึก feedback แล้ว");
-  } catch (error) {
+  } catch {
     safeLog({
-      failure_reason: "feedback_save_failed",
-      message: error instanceof Error ? error.message : "unknown_error"
+      failure_reason: "feedback_save_failed"
     });
     return ephemeralDiscordResponse("ไม่สามารถบันทึก feedback ได้");
   }

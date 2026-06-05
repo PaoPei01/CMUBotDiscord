@@ -6,7 +6,7 @@ create index if not exists faqs_active_valid_until_idx
 create index if not exists faqs_full_text_idx
   on public.faqs using gin (
     to_tsvector(
-      'simple',
+      'pg_catalog.simple'::regconfig,
       coalesce(question, '') || ' ' ||
       coalesce(answer_short, '') || ' ' ||
       coalesce(answer_full, '') || ' ' ||
@@ -53,13 +53,13 @@ security definer
 set search_path = public
 as $$
   with query as (
-    select plainto_tsquery('simple', search_query) as ts_query
+    select plainto_tsquery('pg_catalog.simple'::regconfig, search_query) as ts_query
   ),
   faq_docs as (
     select
       faqs.*,
       to_tsvector(
-        'simple',
+        'pg_catalog.simple'::regconfig,
         coalesce(faqs.question, '') || ' ' ||
         coalesce(faqs.answer_short, '') || ' ' ||
         coalesce(faqs.answer_full, '') || ' ' ||

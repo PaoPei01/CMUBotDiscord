@@ -1,5 +1,6 @@
 import { logQuestion } from "@campus-qa/database";
 import type { DatabaseServiceClient } from "@campus-qa/database";
+import type { QuestionLog } from "@campus-qa/database";
 import type { SearchResult } from "@campus-qa/knowledge";
 import type { Message, MessageReplyOptions } from "discord.js";
 
@@ -88,6 +89,48 @@ async function replyCanned(message: NaturalQaMessage, content: string): Promise<
   return { replied: true };
 }
 
+async function safeLogNaturalQuestion({
+  context,
+  guildId,
+  intent,
+  message,
+  responseTimeMs,
+  searchResult,
+  trigger
+}: {
+  context: NaturalQaContext;
+  guildId: string | null;
+  intent: NaturalIntent;
+  message: NaturalQaMessage;
+  responseTimeMs: number;
+  searchResult: SearchResult;
+  trigger: Extract<NaturalQaTriggerResult, { shouldProcess: true }>;
+}): Promise<QuestionLog | null> {
+  try {
+    return await logQuestion(context.database, {
+      confidence: searchResult.confidence,
+      discordGuildId: guildId,
+      discordUserId: message.author.id,
+      intent,
+      matchedFaqId: searchResult.faqId,
+      method: searchResult.method,
+      responseTimeMs,
+      triggerType: trigger.triggerType,
+      userQuestion: trigger.question
+    });
+  } catch (error) {
+    context.logger.warn(
+      {
+        errorMessage: error instanceof Error ? error.message : "Unknown log error",
+        intent,
+        triggerType: trigger.triggerType
+      },
+      "Natural Q&A question logging failed"
+    );
+    return null;
+  }
+}
+
 export async function handleNaturalQaMessage(
   message: NaturalQaMessage,
   context: NaturalQaContext,
@@ -136,16 +179,14 @@ export async function handleNaturalQaMessage(
     ? rawSearchResult
     : notFoundResult(rawSearchResult);
   const responseTimeMs = Date.now() - startedAt;
-  const questionLog = await logQuestion(context.database, {
-    confidence: searchResult.confidence,
-    discordGuildId: message.guildId,
-    discordUserId: message.author.id,
+  const questionLog = await safeLogNaturalQuestion({
+    context,
+    guildId: message.guildId,
     intent,
-    matchedFaqId: searchResult.faqId,
-    method: searchResult.method,
+    message,
     responseTimeMs,
-    triggerType: trigger.triggerType,
-    userQuestion: trigger.question
+    searchResult,
+    trigger
   });
 
   context.logger.info(
@@ -154,7 +195,7 @@ export async function handleNaturalQaMessage(
       intent,
       matchedFaqId: searchResult.faqId,
       method: searchResult.method,
-      questionLogId: questionLog.id,
+      questionLogId: questionLog?.id ?? null,
       responseTimeMs,
       triggerType: trigger.triggerType
     },
@@ -163,14 +204,14 @@ export async function handleNaturalQaMessage(
 
   if (searchResult.faqId && searchResult.confidence >= 60) {
     await message.reply({
-      components: createAnswerComponents(questionLog.id),
+      ...(questionLog ? { components: createAnswerComponents(questionLog.id) } : {}),
       embeds: [createAnswerEmbed({ question: trigger.question, result: searchResult })]
     });
     return { intent, replied: true, trigger };
   }
 
   await message.reply({
-    components: createNotFoundComponents(questionLog.id),
+    ...(questionLog ? { components: createNotFoundComponents(questionLog.id) } : {}),
     embeds: [createNotFoundEmbed(trigger.question)]
   });
 

@@ -7,17 +7,14 @@ create index if not exists faqs_full_text_idx
   on public.faqs using gin (
     to_tsvector(
       'simple',
-      concat_ws(
-        ' ',
-        question,
-        answer_short,
-        answer_full,
-        category,
-        audience,
-        faculty_group,
-        source_page,
-        source_quote
-      )
+      coalesce(question, '') || ' ' ||
+      coalesce(answer_short, '') || ' ' ||
+      coalesce(answer_full, '') || ' ' ||
+      coalesce(category, '') || ' ' ||
+      coalesce(audience, '') || ' ' ||
+      coalesce(faculty_group, '') || ' ' ||
+      coalesce(source_page, '') || ' ' ||
+      coalesce(source_quote, '')
     )
   );
 
@@ -57,60 +54,47 @@ set search_path = public
 as $$
   with query as (
     select plainto_tsquery('simple', search_query) as ts_query
+  ),
+  faq_docs as (
+    select
+      faqs.*,
+      to_tsvector(
+        'simple',
+        coalesce(faqs.question, '') || ' ' ||
+        coalesce(faqs.answer_short, '') || ' ' ||
+        coalesce(faqs.answer_full, '') || ' ' ||
+        coalesce(faqs.category, '') || ' ' ||
+        coalesce(faqs.audience, '') || ' ' ||
+        coalesce(faqs.faculty_group, '') || ' ' ||
+        coalesce(faqs.source_page, '') || ' ' ||
+        coalesce(faqs.source_quote, '')
+      ) as document
+    from public.faqs
+    where faqs.status = 'active'
+      and (faqs.valid_until is null or faqs.valid_until >= now())
   )
   select
-    faqs.id,
-    faqs.question,
-    faqs.answer_short,
-    faqs.answer_full,
-    faqs.audience,
-    faqs.category,
-    faqs.faculty_group,
-    faqs.priority,
-    faqs.source_page,
-    faqs.source_quote,
-    faqs.valid_from,
-    faqs.valid_until,
+    faq_docs.id,
+    faq_docs.question,
+    faq_docs.answer_short,
+    faq_docs.answer_full,
+    faq_docs.audience,
+    faq_docs.category,
+    faq_docs.faculty_group,
+    faq_docs.priority,
+    faq_docs.source_page,
+    faq_docs.source_quote,
+    faq_docs.valid_from,
+    faq_docs.valid_until,
     sources.id as source_id,
     sources.name as source_name,
     sources.url as source_url,
     sources.last_verified_at as source_last_verified_at,
-    ts_rank_cd(
-      to_tsvector(
-        'simple',
-        concat_ws(
-          ' ',
-          faqs.question,
-          faqs.answer_short,
-          faqs.answer_full,
-          faqs.category,
-          faqs.audience,
-          faqs.faculty_group,
-          faqs.source_page,
-          faqs.source_quote
-        )
-      ),
-      query.ts_query
-    ) as rank
-  from public.faqs
-  left join public.sources on sources.id = faqs.source_id
+    ts_rank_cd(faq_docs.document, query.ts_query) as rank
+  from faq_docs
+  left join public.sources on sources.id = faq_docs.source_id
   cross join query
-  where faqs.status = 'active'
-    and (faqs.valid_until is null or faqs.valid_until >= now())
-    and query.ts_query @@ to_tsvector(
-      'simple',
-      concat_ws(
-        ' ',
-        faqs.question,
-        faqs.answer_short,
-        faqs.answer_full,
-        faqs.category,
-        faqs.audience,
-        faqs.faculty_group,
-        faqs.source_page,
-        faqs.source_quote
-      )
-    )
+  where query.ts_query @@ faq_docs.document
   order by rank desc
   limit match_count;
 $$;

@@ -84,6 +84,7 @@ Discord /ask
   - confidence `>= 90`: answer directly from verified FAQ and do not call AI
   - confidence `70-89`: answer only when verified context/source exists; AI may rewrite that context only
   - confidence `< 70`: do not answer and do not call AI
+- Worker retrieval uses Supabase RPCs for exact, alias, and keyword matches before falling back to full-text and fuzzy logic, avoiding a full active FAQ table fetch on the common paths.
 - If AI fails for confidence `70-89`, the system falls back to the direct verified FAQ answer.
 - If verified context or citation source is missing, the system returns the not-found message instead of serving an uncited answer.
 - Question logging is best-effort and must not block Discord responses.

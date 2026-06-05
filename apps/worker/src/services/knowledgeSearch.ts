@@ -35,12 +35,15 @@ type KeywordRow = {
   keyword: string;
 };
 
-type FullTextRow = Omit<FAQRow, "source" | "status"> & {
-  rank: number;
+type SearchRpcRow = Omit<FAQRow, "source" | "status"> & {
   source_id: string | null;
   source_last_verified_at: string | null;
   source_name: string | null;
   source_url: string | null;
+};
+
+type FullTextRow = SearchRpcRow & {
+  rank: number;
 };
 
 type QuestionLogInsertRow = {
@@ -119,7 +122,7 @@ function toResult(
   };
 }
 
-function fullTextRowToFaq(row: FullTextRow): FAQRow {
+function searchRpcRowToFaq(row: SearchRpcRow): FAQRow {
   return {
     answer_full: row.answer_full,
     answer_short: row.answer_short,
@@ -234,6 +237,79 @@ function fuzzyConfidence(question: string, candidates: string[]): { confidence: 
   return best;
 }
 
+async function searchRpc(
+  client: SupabaseFetchClient,
+  rpcName: string,
+  question: string
+): Promise<SearchRpcRow | null> {
+  try {
+    const [match] = await client.request<SearchRpcRow[]>(`rpc/${rpcName}`, {
+      body: JSON.stringify({
+        search_query: question
+      }),
+      method: "POST"
+    });
+
+    return match ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function fullTextRpc(
+  client: SupabaseFetchClient,
+  question: string
+): Promise<FullTextRow | null> {
+  try {
+    const [match] = await client.request<FullTextRow[]>("rpc/search_active_faqs_full_text", {
+      body: JSON.stringify({
+        match_count: 5,
+        search_query: question
+      }),
+      method: "POST"
+    });
+
+    return match ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadFuzzyFallbackData(client: SupabaseFetchClient): Promise<{
+  aliases: AliasRow[];
+  faqs: FAQRow[];
+  keywords: KeywordRow[];
+}> {
+  const faqs = await client.request<FAQRow[]>(
+    "faqs?select=*,source:sources(id,name,url,last_verified_at)&status=eq.active"
+  );
+  const activeFaqs = faqs.filter((faq) => faq.status === "active" && !isExpired(faq.valid_until));
+
+  if (activeFaqs.length === 0) {
+    return {
+      aliases: [],
+      faqs: [],
+      keywords: []
+    };
+  }
+
+  const encodedIds = activeFaqs.map((faq) => `"${faq.id}"`).join(",");
+  const [aliases, keywords] = await Promise.all([
+    client.request<AliasRow[]>(
+      `faq_aliases?select=faq_id,alias&faq_id=in.(${encodedIds})`
+    ),
+    client.request<KeywordRow[]>(
+      `faq_keywords?select=faq_id,keyword&faq_id=in.(${encodedIds})`
+    )
+  ]);
+
+  return {
+    aliases,
+    faqs: activeFaqs,
+    keywords
+  };
+}
+
 export async function searchKnowledge(
   client: SupabaseFetchClient,
   question: string
@@ -244,101 +320,62 @@ export async function searchKnowledge(
     return noneResult;
   }
 
-  const faqs = await client.request<FAQRow[]>(
-    "faqs?select=*,source:sources(id,name,url,last_verified_at)&status=eq.active"
-  );
-  const activeFaqs = faqs.filter((faq) => faq.status === "active" && !isExpired(faq.valid_until));
-  const exactMatch = activeFaqs.find(
-    (faq) => normalizeSearchText(faq.question) === normalizedQuestion
-  );
-
+  const exactMatch = await searchRpc(client, "search_active_faq_exact", question);
   if (exactMatch) {
-    return toResult(exactMatch, "exact", 95, "Exact question match");
+    return toResult(searchRpcRowToFaq(exactMatch), "exact", 95, "Exact question match");
   }
 
-  if (activeFaqs.length === 0) {
+  const aliasMatch = await searchRpc(client, "search_active_faq_alias", question);
+  if (aliasMatch) {
+    return toResult(searchRpcRowToFaq(aliasMatch), "alias", 90, "Alias match");
+  }
+
+  const keywordMatch = await searchRpc(client, "search_active_faq_keyword", question);
+  if (keywordMatch) {
+    return toResult(searchRpcRowToFaq(keywordMatch), "keyword", 80, "Keyword match");
+  }
+
+  const fullTextMatch = await fullTextRpc(client, question);
+  if (fullTextMatch) {
+    const confidence = Math.min(85, Math.max(70, Math.round(70 + fullTextMatch.rank * 100)));
+    return toResult(
+      searchRpcRowToFaq(fullTextMatch),
+      "full_text",
+      confidence,
+      `PostgreSQL full-text rank: ${fullTextMatch.rank.toFixed(4)}`
+    );
+  }
+
+  const { aliases, faqs, keywords } = await loadFuzzyFallbackData(client).catch(() => ({
+    aliases: [],
+    faqs: [],
+    keywords: []
+  }));
+  if (faqs.length === 0) {
     return noneResult;
   }
 
-  const faqIds = activeFaqs.map((faq) => faq.id);
-  const encodedIds = faqIds.map((id) => `"${id}"`).join(",");
-  const [aliases, keywords] = await Promise.all([
-    client.request<AliasRow[]>(
-      `faq_aliases?select=faq_id,alias&faq_id=in.(${encodedIds})`
-    ),
-    client.request<KeywordRow[]>(
-      `faq_keywords?select=faq_id,keyword&faq_id=in.(${encodedIds})`
-    )
-  ]);
-  const aliasMatch = aliases.find(
-    (alias) => normalizeSearchText(alias.alias) === normalizedQuestion
-  );
-
-  if (aliasMatch) {
-    const faq = activeFaqs.find((candidate) => candidate.id === aliasMatch.faq_id);
-
-    if (faq) {
-      return toResult(faq, "alias", 90, `Alias match: ${aliasMatch.alias}`);
-    }
-  }
-
-  const keywordScores = activeFaqs
+  const fullTextScores = faqs
     .map((faq) => ({
-      faq,
-      score: keywords.filter(
-        (keyword) =>
-          keyword.faq_id === faq.id &&
-          normalizedQuestion.includes(normalizeSearchText(keyword.keyword))
-      ).length
+      confidence: tokenOverlapConfidence(
+        question,
+        searchableText(faq, aliases, keywords)
+      ),
+      faq
     }))
-    .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score);
+    .filter((entry) => entry.confidence > 0)
+    .sort((left, right) => right.confidence - left.confidence);
 
-  if (keywordScores[0]) {
-    return toResult(keywordScores[0].faq, "keyword", 80, `Keyword matches: ${keywordScores[0].score}`);
+  if (fullTextScores[0]) {
+    return toResult(
+      fullTextScores[0].faq,
+      "full_text",
+      fullTextScores[0].confidence,
+      "Deterministic token overlap fallback"
+    );
   }
 
-  try {
-    const [fullTextMatch] = await client.request<FullTextRow[]>("rpc/search_active_faqs_full_text", {
-      body: JSON.stringify({
-        match_count: 5,
-        search_query: question
-      }),
-      method: "POST"
-    });
-
-    if (fullTextMatch) {
-      const confidence = Math.min(85, Math.max(70, Math.round(70 + fullTextMatch.rank * 100)));
-      return toResult(
-        fullTextRowToFaq(fullTextMatch),
-        "full_text",
-        confidence,
-        `PostgreSQL full-text rank: ${fullTextMatch.rank.toFixed(4)}`
-      );
-    }
-  } catch {
-    const fullTextScores = activeFaqs
-      .map((faq) => ({
-        confidence: tokenOverlapConfidence(
-          question,
-          searchableText(faq, aliases, keywords)
-        ),
-        faq
-      }))
-      .filter((entry) => entry.confidence > 0)
-      .sort((left, right) => right.confidence - left.confidence);
-
-    if (fullTextScores[0]) {
-      return toResult(
-        fullTextScores[0].faq,
-        "full_text",
-        fullTextScores[0].confidence,
-        "Deterministic token overlap fallback"
-      );
-    }
-  }
-
-  const fuzzyScores = activeFaqs
+  const fuzzyScores = faqs
     .map((faq) => {
       const candidates = [
         faq.question,

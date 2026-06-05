@@ -25,6 +25,13 @@ type TestFaq = {
   valid_until: string | null;
 };
 
+type TestRpcRow = Omit<TestFaq, "source" | "status"> & {
+  source_id: string | null;
+  source_last_verified_at: string | null;
+  source_name: string | null;
+  source_url: string | null;
+};
+
 const activeFaqs: TestFaq[] = [
   {
     answer_full: "Students must pay tuition from 6-10 July 2026.",
@@ -70,17 +77,61 @@ const activeFaqs: TestFaq[] = [
   }
 ];
 
+function rpcRow(faq: TestFaq): TestRpcRow {
+  return {
+    answer_full: faq.answer_full,
+    answer_short: faq.answer_short,
+    audience: faq.audience,
+    category: faq.category,
+    faculty_group: faq.faculty_group,
+    id: faq.id,
+    priority: faq.priority,
+    question: faq.question,
+    source_id: faq.source.id,
+    source_last_verified_at: faq.source.last_verified_at,
+    source_name: faq.source.name,
+    source_page: faq.source_page,
+    source_quote: faq.source_quote,
+    source_url: faq.source.url,
+    valid_from: faq.valid_from,
+    valid_until: faq.valid_until
+  };
+}
+
 function client({
   aliases = [],
+  aliasRows = [],
+  exactRows = [],
   faqs = activeFaqs,
-  fullTextRows = []
+  fullTextRows = [],
+  keywordRows = []
 }: {
   aliases?: Array<{ alias: string; faq_id: string }>;
+  aliasRows?: unknown[];
+  exactRows?: unknown[];
   faqs?: TestFaq[];
   fullTextRows?: unknown[];
-} = {}): SupabaseFetchClient {
+  keywordRows?: unknown[];
+} = {}): SupabaseFetchClient & { calls: string[] } {
+  const calls: string[] = [];
+
   return {
+    calls,
     request<T>(path: string): Promise<T> {
+      calls.push(path);
+
+      if (path === "rpc/search_active_faq_exact") {
+        return Promise.resolve(exactRows as T);
+      }
+
+      if (path === "rpc/search_active_faq_alias") {
+        return Promise.resolve(aliasRows as T);
+      }
+
+      if (path === "rpc/search_active_faq_keyword") {
+        return Promise.resolve(keywordRows as T);
+      }
+
       if (path.startsWith("faqs?")) {
         return Promise.resolve(faqs as T);
       }
@@ -108,47 +159,54 @@ function client({
 }
 
 describe("worker searchKnowledge", () => {
-  it("returns exact matches", async () => {
-    const result = await searchKnowledge(client(), "When do students pay tuition?");
+  it("returns exact RPC matches without fetching all FAQs", async () => {
+    const testClient = client({ exactRows: [rpcRow(activeFaqs[0]!)] });
+    const result = await searchKnowledge(testClient, "When do students pay tuition?");
 
     expect(result.method).toBe("exact");
     expect(result.confidence).toBe(95);
     expect(result.faqId).toBe("faq-tuition");
+    expect(testClient.calls).toEqual(["rpc/search_active_faq_exact"]);
   });
 
-  it("returns alias matches", async () => {
-    const result = await searchKnowledge(
-      client({ aliases: [{ alias: "tuition date", faq_id: "faq-tuition" }] }),
-      "tuition date"
-    );
+  it("returns alias RPC matches without fetching all FAQs", async () => {
+    const testClient = client({ aliasRows: [rpcRow(activeFaqs[0]!)] });
+    const result = await searchKnowledge(testClient, "tuition date");
 
     expect(result.method).toBe("alias");
     expect(result.confidence).toBe(90);
     expect(result.faqId).toBe("faq-tuition");
+    expect(testClient.calls).toEqual([
+      "rpc/search_active_faq_exact",
+      "rpc/search_active_faq_alias"
+    ]);
   });
 
-  it("returns keyword matches", async () => {
-    const result = await searchKnowledge(client(), "I need tuition info");
+  it("returns keyword RPC matches without fetching all FAQs", async () => {
+    const testClient = client({ keywordRows: [rpcRow(activeFaqs[0]!)] });
+    const result = await searchKnowledge(testClient, "I need tuition info");
 
     expect(result.method).toBe("keyword");
     expect(result.confidence).toBe(80);
     expect(result.faqId).toBe("faq-tuition");
+    expect(testClient.calls).toEqual([
+      "rpc/search_active_faq_exact",
+      "rpc/search_active_faq_alias",
+      "rpc/search_active_faq_keyword"
+    ]);
   });
 
   it("returns PostgreSQL full-text matches", async () => {
+    const testClient = client({
+      fullTextRows: [
+        {
+          ...rpcRow(activeFaqs[1]!),
+          rank: 0.12
+        }
+      ]
+    });
     const result = await searchKnowledge(
-      client({
-        fullTextRows: [
-          {
-            ...activeFaqs[1],
-            rank: 0.12,
-            source_id: "source-1",
-            source_last_verified_at: "2026-06-02T00:00:00Z",
-            source_name: "Verified Source",
-            source_url: "https://example.edu"
-          }
-        ]
-      }),
+      testClient,
       "front-facing color requirement"
     );
 
@@ -156,15 +214,28 @@ describe("worker searchKnowledge", () => {
     expect(result.confidence).toBeGreaterThanOrEqual(70);
     expect(result.confidence).toBeLessThanOrEqual(85);
     expect(result.faqId).toBe("faq-photo");
+    expect(testClient.calls).not.toContain(
+      "faqs?select=*,source:sources(id,name,url,last_verified_at)&status=eq.active"
+    );
   });
 
   it("returns fuzzy matches above the safe threshold", async () => {
-    const result = await searchKnowledge(client(), "What foto is required for a student card?");
+    const result = await searchKnowledge(client(), "Whatphotoisrequiredforastudentcard");
 
     expect(result.method).toBe("fuzzy");
     expect(result.confidence).toBeGreaterThanOrEqual(60);
     expect(result.confidence).toBeLessThanOrEqual(75);
     expect(result.faqId).toBe("faq-photo");
+  });
+
+  it("falls back when RPCs return no rows", async () => {
+    const testClient = client();
+    const result = await searchKnowledge(testClient, "Whatphotoisrequiredforastudentcard");
+
+    expect(result.method).toBe("fuzzy");
+    expect(testClient.calls).toContain(
+      "faqs?select=*,source:sources(id,name,url,last_verified_at)&status=eq.active"
+    );
   });
 
   it("does not serve expired active FAQs", async () => {

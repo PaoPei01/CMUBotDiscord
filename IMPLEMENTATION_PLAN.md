@@ -499,6 +499,43 @@ Validation results:
 - `corepack pnpm build` passed.
 - `corepack pnpm test` passed.
 
+## Worker Knowledge Search Performance Optimization
+
+Status: complete.
+
+Goal: Avoid fetching all active FAQs in the Cloudflare Worker before exact, alias, and keyword matching.
+
+Completed scope:
+
+- Added Supabase RPC migration for Worker search:
+  - `search_active_faq_exact(search_query text)`
+  - `search_active_faq_alias(search_query text)`
+  - `search_active_faq_keyword(search_query text)`
+- RPCs return enriched FAQ/source fields needed by Worker answers.
+- RPCs filter to active, non-expired FAQs in the database.
+- Worker search order now uses:
+  - exact RPC
+  - alias RPC
+  - keyword RPC
+  - existing PostgreSQL full-text RPC
+  - fetch-all only for final deterministic/fuzzy fallback
+- RPC failures fail safely and continue to the next layer without logging secrets.
+- Worker knowledge search tests cover exact, alias, keyword RPC paths, no-row fallback, and inactive/expired exclusions.
+
+Not included:
+
+- No AI changes.
+- No admin UI changes.
+- No new providers.
+- No database schema changes beyond Worker search RPCs.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+- `corepack pnpm test` passed.
+
 ## FAQ Metadata Schema Update
 
 Status: complete.

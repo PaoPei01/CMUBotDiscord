@@ -271,6 +271,31 @@ th {
   padding: 6px 8px;
 }
 
+.metric-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.metric-card {
+  background: #ffffff;
+  border: 1px solid #e6eaf0;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.metric-label {
+  color: #687385;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
 .review-actions {
   display: grid;
   gap: 8px;

@@ -465,6 +465,41 @@ Validation results:
 - `corepack pnpm test` passed.
 - `corepack pnpm build` passed.
 
+## Minimal Q&A Observability Dashboard
+
+Status: complete.
+
+Goal: Give admins a simple daily health overview for verified Q&A operations.
+
+Completed scope:
+
+- Added admin `/insights` page for aggregate Q&A metrics over the last 7 days.
+- Added database aggregation for:
+  - total questions
+  - answered questions
+  - not-found questions
+  - low-confidence questions
+  - feedback up/down counts
+  - average response time
+  - top unanswered questions
+  - top matched FAQs
+  - most down-voted FAQs
+- Added admin navigation link for Insights.
+- Kept the dashboard aggregate-only and avoided exposing Discord user ids or
+  raw personal metadata.
+
+Not included:
+
+- No new analytics tracking.
+- No AI usage.
+- No charts or external analytics services.
+
+Validation results:
+
+- `corepack pnpm lint` passed.
+- `corepack pnpm typecheck` passed.
+- `corepack pnpm build` passed.
+
 ## Minimal Admin Review Queue
 
 Status: complete.

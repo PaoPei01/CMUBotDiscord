@@ -312,6 +312,31 @@ export type AdminQuestionReviewItem = {
   user_question: string;
 };
 
+export type AdminQaInsights = {
+  averageResponseTimeMs: number | null;
+  answeredQuestions: number;
+  feedbackDownCount: number;
+  feedbackUpCount: number;
+  lowConfidenceQuestions: number;
+  mostDownVotedFaqs: Array<{
+    downVotes: number;
+    faqId: string;
+    question: string;
+  }>;
+  notFoundQuestions: number;
+  since: string;
+  topMatchedFaqs: Array<{
+    count: number;
+    faqId: string;
+    question: string;
+  }>;
+  topUnansweredQuestions: Array<{
+    count: number;
+    question: string;
+  }>;
+  totalQuestions: number;
+};
+
 export type AdminDraftFAQ = DraftFAQRow & {
   keywords: DraftKeywordRow[];
   knowledge_source: KnowledgeSourceRow;
@@ -370,6 +395,7 @@ export type AdminDatabase = {
     input: Pick<AdminDraftFAQInput, "answer" | "category" | "confidence" | "keywords" | "question">
   ): Promise<void>;
   getFaq(id: string): Promise<AdminFAQ | null>;
+  getQaInsights(): Promise<AdminQaInsights>;
   getDraft(id: string): Promise<AdminDraftFAQ | null>;
   listCategories(): Promise<string[]>;
   listDraftDuplicateChecks(): Promise<Array<{ id: string; keywords: string[]; question: string }>>;
@@ -425,6 +451,22 @@ function validateReviewTerm(value: string, label: "Alias" | "Keyword"): string {
   }
 
   return normalized;
+}
+
+function normalizeInsightQuestion(value: string): string {
+  return value.trim().replace(/\s+/gu, " ").toLocaleLowerCase("th-TH");
+}
+
+function isAnsweredQuestion(log: QuestionLogRow): boolean {
+  return Boolean(log.matched_faq_id) && (log.confidence ?? 0) >= 70;
+}
+
+function isNotFoundQuestion(log: QuestionLogRow): boolean {
+  return !log.matched_faq_id || log.confidence === null || log.confidence < 70;
+}
+
+function isLowConfidenceQuestion(log: QuestionLogRow): boolean {
+  return Boolean(log.matched_faq_id) && (log.confidence ?? 0) >= 70 && (log.confidence ?? 0) < 90;
 }
 
 function createFaqCode(prefix: string): string {
@@ -559,6 +601,73 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
     }
   }
 
+  async function fetchFaqQuestionMap(faqIds: string[]): Promise<Map<string, string>> {
+    const uniqueIds = [...new Set(faqIds)].filter(Boolean);
+
+    if (uniqueIds.length === 0) {
+      return new Map();
+    }
+
+    const result = await client
+      .from("faqs")
+      .select("id, question")
+      .in("id", uniqueIds);
+
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+
+    return new Map((result.data ?? []).map((faq) => [faq.id, faq.question]));
+  }
+
+  function topUnansweredQuestionCounts(
+    logs: QuestionLogRow[]
+  ): AdminQaInsights["topUnansweredQuestions"] {
+    const counts = new Map<string, { count: number; question: string }>();
+
+    for (const log of logs.filter(isNotFoundQuestion)) {
+      const question = log.user_question.trim().replace(/\s+/gu, " ");
+      const key = normalizeInsightQuestion(question);
+
+      if (!key) {
+        continue;
+      }
+
+      const existing = counts.get(key);
+      counts.set(key, {
+        count: (existing?.count ?? 0) + 1,
+        question: existing?.question ?? question
+      });
+    }
+
+    return [...counts.values()]
+      .sort((left, right) => right.count - left.count || left.question.localeCompare(right.question))
+      .slice(0, 10);
+  }
+
+  async function topMatchedFaqCounts(
+    logs: QuestionLogRow[]
+  ): Promise<AdminQaInsights["topMatchedFaqs"]> {
+    const counts = new Map<string, number>();
+
+    for (const log of logs.filter(isAnsweredQuestion)) {
+      if (log.matched_faq_id) {
+        counts.set(log.matched_faq_id, (counts.get(log.matched_faq_id) ?? 0) + 1);
+      }
+    }
+
+    const questions = await fetchFaqQuestionMap([...counts.keys()]);
+
+    return [...counts.entries()]
+      .map(([faqId, count]) => ({
+        count,
+        faqId,
+        question: questions.get(faqId) ?? "Unknown FAQ"
+      }))
+      .sort((left, right) => right.count - left.count || left.question.localeCompare(right.question))
+      .slice(0, 10);
+  }
+
   async function getFaq(id: string): Promise<AdminFAQ | null> {
     const faqResult = await client.from("faqs").select("*").eq("id", id).maybeSingle();
 
@@ -666,6 +775,105 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
         const rightDate = right.valid_until ?? right.source?.last_verified_at ?? right.updated_at;
         return new Date(leftDate).getTime() - new Date(rightDate).getTime();
       });
+  }
+
+  async function mostDownVotedFaqCounts(
+    feedback: FeedbackRow[]
+  ): Promise<AdminQaInsights["mostDownVotedFaqs"]> {
+    const downVoteLogIds = [
+      ...new Set(
+        feedback
+          .filter((row) => row.vote === "down")
+          .map((row) => row.question_log_id)
+          .filter(Boolean)
+      )
+    ];
+
+    if (downVoteLogIds.length === 0) {
+      return [];
+    }
+
+    const logsResult = await client
+      .from("question_logs")
+      .select("*")
+      .in("id", downVoteLogIds);
+
+    if (logsResult.error) {
+      throw new Error(logsResult.error.message);
+    }
+
+    const logById = new Map((logsResult.data ?? []).map((log) => [log.id, log]));
+    const counts = new Map<string, number>();
+
+    for (const row of feedback.filter((item) => item.vote === "down")) {
+      const log = logById.get(row.question_log_id);
+
+      if (log?.matched_faq_id) {
+        counts.set(log.matched_faq_id, (counts.get(log.matched_faq_id) ?? 0) + 1);
+      }
+    }
+
+    const questions = await fetchFaqQuestionMap([...counts.keys()]);
+
+    return [...counts.entries()]
+      .map(([faqId, downVotes]) => ({
+        downVotes,
+        faqId,
+        question: questions.get(faqId) ?? "Unknown FAQ"
+      }))
+      .sort(
+        (left, right) =>
+          right.downVotes - left.downVotes || left.question.localeCompare(right.question)
+      )
+      .slice(0, 10);
+  }
+
+  async function getQaInsights(): Promise<AdminQaInsights> {
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const [logsResult, feedbackResult] = await Promise.all([
+      client
+        .from("question_logs")
+        .select("*")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false }),
+      client
+        .from("feedback")
+        .select("*")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+    ]);
+
+    if (logsResult.error) {
+      throw new Error(logsResult.error.message);
+    }
+
+    if (feedbackResult.error) {
+      throw new Error(feedbackResult.error.message);
+    }
+
+    const logs = logsResult.data ?? [];
+    const feedback = feedbackResult.data ?? [];
+    const responseTimes = logs
+      .map((log) => log.response_time_ms)
+      .filter((value): value is number => typeof value === "number");
+    const averageResponseTimeMs =
+      responseTimes.length > 0
+        ? Math.round(responseTimes.reduce((total, value) => total + value, 0) / responseTimes.length)
+        : null;
+
+    return {
+      averageResponseTimeMs,
+      answeredQuestions: logs.filter(isAnsweredQuestion).length,
+      feedbackDownCount: feedback.filter((row) => row.vote === "down").length,
+      feedbackUpCount: feedback.filter((row) => row.vote === "up").length,
+      lowConfidenceQuestions: logs.filter(isLowConfidenceQuestion).length,
+      mostDownVotedFaqs: await mostDownVotedFaqCounts(feedback),
+      notFoundQuestions: logs.filter(isNotFoundQuestion).length,
+      since,
+      topMatchedFaqs: await topMatchedFaqCounts(logs),
+      topUnansweredQuestions: topUnansweredQuestionCounts(logs),
+      totalQuestions: logs.length
+    };
   }
 
   async function questionLogWithFaq(log: QuestionLogRow): Promise<AdminQuestionLog> {
@@ -1372,6 +1580,7 @@ export function createSupabaseAdminDatabase(options: AdminOptions): AdminDatabas
       });
     },
     getFaq,
+    getQaInsights,
     getDraft,
     async listCategories() {
       const result = await client.from("faqs").select("category").order("category");
